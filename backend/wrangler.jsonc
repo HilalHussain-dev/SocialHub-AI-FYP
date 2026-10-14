@@ -1,0 +1,38 @@
+/**
+ * Cloudflare Worker configuration for SocialHub AI Backend
+ *
+ * D1 Database:
+ *   socialhub-db
+ *
+ * R2 Bucket:
+ *   socialhub-media
+ */
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "socialhub-backend",
+	"main": "src/index.js",
+	"compatibility_date": "2026-10-01",
+	"observability": {
+		"enabled": true
+	},
+	"upload_source_maps": true,
+	/**
+	 * Cloudflare D1 SQL Database
+	 */
+	"d1_databases": [
+		{
+			"binding": "socialhub_db",
+			"database_name": "socialhub-db",
+			"database_id": "b806ecdb-2978-4fbb-819b-fbd27aae50bd"
+		}
+	],
+	/**
+	 * Cloudflare R2 Object Storage
+	 */
+	"r2_buckets": [
+		{
+			"binding": "socialhub_media",
+			"bucket_name": "socialhub-media"
+		}
+	]
+}

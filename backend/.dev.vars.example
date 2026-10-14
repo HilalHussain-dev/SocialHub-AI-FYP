@@ -1,0 +1,21 @@
+# ==============================================================================
+# Cloudflare Worker Local Environment Configuration (.dev.vars)
+# Copy this file to .dev.vars or update your values below.
+# ==============================================================================
+
+# Meta / Facebook App Credentials (from developers.facebook.com)
+FACEBOOK_APP_ID=
+FACEBOOK_APP_SECRET=
+FACEBOOK_REDIRECT_URI=http://localhost:8787/api/facebook/callback
+
+# Instagram App Credentials (can use the same App ID & Secret as Facebook)
+INSTAGRAM_APP_ID=
+INSTAGRAM_APP_SECRET=
+INSTAGRAM_REDIRECT_URI=http://localhost:8787/api/instagram/callback
+
+# Direct Instagram Access Token & Account ID (Optional / if testing with direct token)
+INSTAGRAM_ACCESS_TOKEN=
+INSTAGRAM_BUSINESS_ACCOUNT_ID=
+
+# Public Base URL (Optional: needed if posting local R2 images to Instagram while on localhost, e.g. via ngrok/tunnel)
+PUBLIC_BASE_URL=
