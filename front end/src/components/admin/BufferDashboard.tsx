@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import logo from '../../assets/logo.png';
 import { 
   Home, 
   Lightbulb, 
@@ -31,6 +32,7 @@ interface BufferDashboardProps {
   onLogout: () => void;
   onGoToLanding: () => void;
   apiUrl: string;
+  refreshTrigger?: number;
 }
 
 interface FacebookPage {
@@ -38,6 +40,7 @@ interface FacebookPage {
   id?: string;
   page_name?: string;
   name?: string;
+  category?: string;
 }
 
 interface InstagramAccount {
@@ -58,7 +61,7 @@ interface PostRecord {
   status: string;
 }
 
-export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl }: BufferDashboardProps) {
+export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refreshTrigger }: BufferDashboardProps) {
   // Navigation tab state
   const [activeNav, setActiveNav] = useState<'home' | 'create' | 'publish' | 'community' | 'insights'>('home');
 
@@ -133,7 +136,7 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl }: Buffe
   useEffect(() => {
     loadChannels();
     loadPosts();
-  }, []);
+  }, [refreshTrigger]);
 
   // Calculate connected channels count out of 3
   const connectedCount = (fbPages.length > 0 ? 1 : 0) + (igAccounts.length > 0 ? 1 : 0);
@@ -281,14 +284,9 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl }: Buffe
         <div>
           {/* Logo & Seedling Icon */}
           <div className="h-14 px-5 flex items-center justify-between border-b border-transparent">
-            <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveNav('home')}>
-              {/* Buffer 3-layers Logo */}
-              <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 text-gray-900">
-                <path d="M1.5 5.5L12 11.25L22.5 5.5L12 0L1.5 5.5Z" />
-                <path d="M1.5 12L12 17.75L22.5 12L19.5 10.35L12 14.5L4.5 10.35L1.5 12Z" />
-                <path d="M1.5 18.5L12 24.25L22.5 18.5L19.5 16.85L12 21L4.5 16.85L1.5 18.5Z" />
-              </svg>
-              <span className="font-extrabold text-lg tracking-tight text-gray-900">Buffer</span>
+            <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => setActiveNav('home')}>
+              <img src={logo} alt="SocialHub Logo" className="w-7 h-7 object-contain" />
+              <span className="font-extrabold text-lg tracking-tight text-gray-900">SocialHub</span>
             </div>
 
             {/* Seedling Icon */}
@@ -607,7 +605,7 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl }: Buffe
                     </div>
                   </div>
                   <p className="text-xs text-gray-500 leading-relaxed">
-                    Personalize your profile to make the most out of Buffer.
+                    Personalize your profile to make the most out of SocialHub.
                   </p>
                 </div>
 
@@ -645,11 +643,11 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl }: Buffe
                 </div>
               </div>
 
-              {/* Card 3: Explore Buffer API */}
+              {/* Card 3: Explore SocialHub API */}
               <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm flex flex-col justify-between">
                 <div>
                   <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-bold text-sm text-gray-900">3. Explore Buffer API</h3>
+                    <h3 className="font-bold text-sm text-gray-900">3. Explore SocialHub API</h3>
                     <div className="w-4 h-4 rounded-full border border-gray-300 flex items-center justify-center text-gray-400 text-[10px]">
                       ✓
                     </div>

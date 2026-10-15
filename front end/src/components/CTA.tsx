@@ -17,7 +17,14 @@ export function CTA() {
             placeholder="Your work email"
             className="w-full border border-gray-200 rounded-xl px-4 py-3.5 text-sm focus:outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 transition-all"
           />
-          <a href="#" className="w-full sm:w-auto shrink-0 bg-[#1a1a1a] text-white text-sm font-bold px-6 py-3.5 rounded-xl hover:bg-gray-800 transition-colors whitespace-nowrap">
+          <a
+            href="#register"
+            onClick={(e) => {
+              e.preventDefault();
+              window.location.hash = '#register';
+            }}
+            className="w-full sm:w-auto shrink-0 bg-[#1a1a1a] text-white text-sm font-bold px-6 py-3.5 rounded-xl hover:bg-gray-800 transition-colors whitespace-nowrap cursor-pointer"
+          >
             Get started free
           </a>
         </div>

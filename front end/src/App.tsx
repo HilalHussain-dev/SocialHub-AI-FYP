@@ -32,7 +32,43 @@ export default function App() {
   const [authChecking, setAuthChecking] = useState(true);
 
   // Current view: 'landing' | 'login' | 'dashboard'
-  const [view, setView] = useState<'landing' | 'login' | 'dashboard'>('landing');
+  const [view, setView] = useState<'landing' | 'login' | 'dashboard'>(() => {
+    if (typeof window !== 'undefined') {
+      const h = window.location.hash;
+      const p = window.location.pathname;
+      if (h === '#admin' || h === '#dashboard' || p === '/dashboard' || p === '/facebook/callback' || p === '/instagram/callback') {
+        return 'dashboard';
+      }
+      if (h === '#login' || h === '#register' || h === '#signup' || p === '/login' || p === '/register' || p === '/signup') {
+        return 'login';
+      }
+      try {
+        const saved = localStorage.getItem('socialhub_view');
+        if (saved === 'dashboard') return 'dashboard';
+      } catch {}
+    }
+    return 'landing';
+  });
+
+  // Helper to persist view state
+  const updateView = (newView: 'landing' | 'login' | 'dashboard') => {
+    setView(newView);
+    try {
+      localStorage.setItem('socialhub_view', newView);
+    } catch {}
+  };
+
+  // Auth initial mode: 'login' | 'register'
+  const [authMode, setAuthMode] = useState<'login' | 'register'>(() => {
+    if (typeof window !== 'undefined') {
+      const h = window.location.hash;
+      const p = window.location.pathname;
+      if (h === '#register' || h === '#signup' || p === '/register' || p === '/signup') {
+        return 'register';
+      }
+    }
+    return 'register';
+  });
 
   // Account picker state (shown after OAuth callback)
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -41,20 +77,45 @@ export default function App() {
   const [pickerFbPages, setPickerFbPages] = useState<FacebookPageOption[]>([]);
   const [pickerIgAccounts, setPickerIgAccounts] = useState<InstagramAccountOption[]>([]);
 
+  // Trigger to reload channels inside dashboard without page reload
+  const [channelRefreshKey, setChannelRefreshKey] = useState(0);
+
   // Listen to navigation events
   useEffect(() => {
     const handleNavigation = () => {
-      setCurrentPath(window.location.pathname);
-      setCurrentHash(window.location.hash);
+      const h = window.location.hash;
+      const p = window.location.pathname;
+      setCurrentPath(p);
+      setCurrentHash(h);
 
-      if (window.location.hash === '#admin' || window.location.hash === '#dashboard' || window.location.pathname === '/dashboard') {
-        setView('dashboard');
-      } else if (window.location.hash === '#login' || window.location.pathname === '/login') {
-        setView('login');
-      } else if (window.location.hash === '' && window.location.pathname === '/') {
-        setView('landing');
+      if (h === '#admin' || h === '#dashboard' || p === '/dashboard' || p === '/facebook/callback' || p === '/instagram/callback') {
+        updateView('dashboard');
+      } else if (
+        h === '#register' ||
+        h === '#signup' ||
+        p === '/register' ||
+        p === '/signup'
+      ) {
+        setAuthMode('register');
+        updateView('login');
+      } else if (h === '#login' || p === '/login') {
+        setAuthMode('login');
+        updateView('login');
+      } else if (h === '' && p === '/') {
+        try {
+          const saved = localStorage.getItem('socialhub_view');
+          if (saved === 'dashboard') {
+            updateView('dashboard');
+            window.location.hash = '#dashboard';
+            return;
+          }
+        } catch {}
+        updateView('landing');
       }
     };
+
+    // Run on mount
+    handleNavigation();
 
     window.addEventListener('popstate', handleNavigation);
     window.addEventListener('hashchange', handleNavigation);
@@ -74,6 +135,16 @@ export default function App() {
           const data = await res.json();
           if (data.user) {
             setUser(data.user);
+            const h = window.location.hash;
+            const p = window.location.pathname;
+            let saved = null;
+            try { saved = localStorage.getItem('socialhub_view'); } catch {}
+            if (h === '#dashboard' || h === '#admin' || p === '/dashboard' || saved === 'dashboard' || p.includes('/callback')) {
+              updateView('dashboard');
+              if (window.location.hash !== '#dashboard') {
+                window.location.hash = '#dashboard';
+              }
+            }
           }
         }
       } catch (err) {
@@ -88,14 +159,17 @@ export default function App() {
 
   // Handle OAuth Callbacks (/facebook/callback or /instagram/callback)
   useEffect(() => {
-    if (currentPath === '/facebook/callback' || currentPath === '/instagram/callback') {
+    const isCallback = currentPath === '/facebook/callback' || currentPath === '/instagram/callback' || window.location.pathname === '/facebook/callback' || window.location.pathname === '/instagram/callback';
+
+    if (isCallback) {
       const params = new URLSearchParams(window.location.search);
       const pendingKey = params.get('pending');
       const platform = params.get('platform') as 'facebook' | 'instagram' | null;
       const error = params.get('error');
 
-      // Always redirect to dashboard view first
-      setView('dashboard');
+      // Always stay in dashboard view
+      updateView('dashboard');
+      window.location.hash = '#dashboard';
 
       if (error) {
         // Clean up URL and let dashboard handle error display
@@ -125,21 +199,23 @@ export default function App() {
 
       // Clean URL
       window.history.replaceState({}, '', '/#dashboard');
+      window.location.hash = '#dashboard';
     }
   }, [currentPath]);
 
   const handleLoginSuccess = (loggedInUser: User) => {
     setUser(loggedInUser);
-    setView('dashboard');
+    updateView('dashboard');
     window.location.hash = '#dashboard';
   };
 
   const handleLogout = async () => {
     try {
+      localStorage.removeItem('socialhub_view');
       await fetch(`${API_URL}/api/auth/logout`, { method: 'POST', credentials: 'include' });
     } catch {}
     setUser(null);
-    setView('landing');
+    updateView('landing');
     window.location.hash = '';
     window.location.pathname = '/';
   };
@@ -149,11 +225,15 @@ export default function App() {
   // =====================================================
   if (view === 'dashboard') {
     if (!user && !authChecking) {
-      // If user is not logged in, show the Login Page (Image 2)
+      // If user is not logged in, show the Login Page
       return (
         <LoginPage
+          initialMode={authMode}
           onLoginSuccess={handleLoginSuccess}
-          onGoToLanding={() => { setView('landing'); window.location.hash = ''; }}
+          onGoToLanding={() => {
+            updateView('landing');
+            window.location.hash = '';
+          }}
           apiUrl={API_URL}
         />
       );
@@ -164,12 +244,20 @@ export default function App() {
         <BufferDashboard
           user={user || { id: 'admin', email: 'hilalhussain1049@gmail.com', name: 'ahmadkhan61358' }}
           onLogout={handleLogout}
-          onGoToLanding={() => { setView('landing'); window.location.hash = ''; }}
+          onGoToLanding={() => {
+            updateView('landing');
+            window.location.hash = '';
+          }}
           apiUrl={API_URL}
+          refreshTrigger={channelRefreshKey}
         />
         <AccountPickerModal
           isOpen={pickerOpen}
-          onClose={() => setPickerOpen(false)}
+          onClose={() => {
+            setPickerOpen(false);
+            updateView('dashboard');
+            window.location.hash = '#dashboard';
+          }}
           platform={pickerPlatform}
           pendingKey={pickerPendingKey}
           facebookPages={pickerFbPages}
@@ -177,8 +265,10 @@ export default function App() {
           apiUrl={API_URL}
           onConnected={() => {
             setPickerOpen(false);
-            // Reload the page so dashboard fetches fresh channels
-            window.location.reload();
+            updateView('dashboard');
+            window.location.hash = '#dashboard';
+            // Smoothly reload channels in dashboard without page refresh!
+            setChannelRefreshKey((prev) => prev + 1);
           }}
         />
       </>
@@ -186,13 +276,17 @@ export default function App() {
   }
 
   // =====================================================
-  // VIEW: BUFFER LOGIN PAGE (MATCHING IMAGE 2)
+  // VIEW: BUFFER AUTH PAGE (LOGIN / CREATE ACCOUNT)
   // =====================================================
   if (view === 'login') {
     return (
       <LoginPage
+        initialMode={authMode}
         onLoginSuccess={handleLoginSuccess}
-        onGoToLanding={() => { setView('landing'); window.location.hash = ''; }}
+        onGoToLanding={() => {
+          updateView('landing');
+          window.location.hash = '';
+        }}
         apiUrl={API_URL}
       />
     );
@@ -211,11 +305,12 @@ export default function App() {
       <Nav
         user={user}
         onOpenAuth={(mode) => {
-          setView('login');
-          window.location.hash = '#login';
+          setAuthMode(mode);
+          updateView('login');
+          window.location.hash = mode === 'register' ? '#register' : '#login';
         }}
         onOpenAdmin={() => {
-          setView('dashboard');
+          updateView('dashboard');
           window.location.hash = '#dashboard';
         }}
         onLogout={handleLogout}
