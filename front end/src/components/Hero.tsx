@@ -30,7 +30,14 @@ export function Hero() {
           onChange={(e) => setEmail(e.target.value)}
           className="w-full sm:flex-1 border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 transition-all"
         />
-        <a href="#" className="w-full sm:w-auto shrink-0 bg-[#1a1a1a] text-white text-sm font-semibold px-6 py-3 rounded-lg hover:bg-black hover:shadow-xl hover:-translate-y-1 hover:scale-105 active:translate-y-0 active:scale-95 active:shadow-md transition-all duration-300 whitespace-nowrap">
+        <a
+          href="#register"
+          onClick={(e) => {
+            e.preventDefault();
+            window.location.hash = '#register';
+          }}
+          className="w-full sm:w-auto shrink-0 bg-[#1a1a1a] text-white text-sm font-semibold px-6 py-3 rounded-lg hover:bg-black hover:shadow-xl hover:-translate-y-1 hover:scale-105 active:translate-y-0 active:scale-95 active:shadow-md transition-all duration-300 whitespace-nowrap cursor-pointer"
+        >
           Get started for free
         </a>
       </div>

@@ -26,6 +26,7 @@ export interface FacebookPage {
   id?: string;
   page_name?: string;
   name?: string;
+  category?: string;
 }
 
 export interface InstagramAccount {
@@ -531,7 +532,7 @@ export function ConnectNewChannelModal({
             <div className="p-3 bg-blue-50/70 border border-blue-100 rounded-xl text-xs text-blue-900 text-left">
               <p className="font-semibold mb-1">Channel Integration</p>
               <p className="text-blue-700 leading-relaxed">
-                Connect your {infoModal.title} account to schedule posts, analyze engagement, and streamline your workflow directly from Buffer.
+                Connect your {infoModal.title} account to schedule posts, analyze engagement, and streamline your workflow directly from SocialHub.
               </p>
             </div>
             <div className="flex gap-2 pt-2">
@@ -584,7 +585,7 @@ export function ConnectNewChannelModal({
             ) : (
               <form onSubmit={handleRequestSubmit} className="space-y-4">
                 <p className="text-xs text-gray-500">
-                  Tell us which social channel or platform you'd like to manage with Buffer:
+                  Tell us which social channel or platform you'd like to manage with SocialHub:
                 </p>
                 <div>
                   <input
