@@ -6,12 +6,11 @@ import {
   FaXTwitter,
   FaGoogle,
   FaInstagram,
-  FaMastodon,
   FaTiktok,
   FaFacebookF
 } from 'react-icons/fa6';
 
-import { SiBluesky, SiThreads } from 'react-icons/si';
+import { SiThreads } from 'react-icons/si';
 
 import { connectFacebook } from '../lib/facebook';
 import { connectInstagram } from '../lib/instagram';
@@ -33,11 +32,6 @@ const CHANNELS = [
     icon: <FaPinterestP className="w-5 h-5 text-white" />
   },
   {
-    name: 'Bluesky',
-    color: '#0085FF',
-    icon: <SiBluesky className="w-4 h-4 text-white" />
-  },
-  {
     name: 'YouTube',
     color: '#FF0000',
     icon: <FaYoutube className="w-5 h-5 text-white" />
@@ -56,11 +50,6 @@ const CHANNELS = [
     name: 'Instagram',
     color: '#E1306C',
     icon: <FaInstagram className="w-5 h-5 text-white" />
-  },
-  {
-    name: 'Mastodon',
-    color: '#6364FF',
-    icon: <FaMastodon className="w-4 h-4 text-white" />
   },
   {
     name: 'TikTok',
@@ -88,7 +77,7 @@ export function Channels({ onSelectChannel }: ChannelsProps) {
         </h2>
 
         <p className="text-gray-500 max-w-xl mx-auto">
-          11 platforms and counting — we add new channels as they grow.
+          9 platforms and counting — we add new channels as they grow.
         </p>
       </div>
 

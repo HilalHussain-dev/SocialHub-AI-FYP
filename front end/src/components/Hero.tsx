@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import { Zap, ArrowRight, Check } from 'lucide-react';
 import { Channels } from './Channels';
 
-export function Hero() {
+interface HeroProps {
+  onSelectChannel?: (channelName: string) => void;
+}
+
+export function Hero({ onSelectChannel }: HeroProps = {}) {
   const [email, setEmail] = useState('');
 
   return (
@@ -47,7 +51,7 @@ export function Hero() {
       </p>
 
       {/* Channels track */}
-      <Channels />
+      <Channels onSelectChannel={onSelectChannel} />
     </section>
   );
 }

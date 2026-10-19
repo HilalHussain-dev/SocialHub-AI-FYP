@@ -16,10 +16,9 @@ import {
   FaYoutube, 
   FaTiktok, 
   FaPinterestP, 
-  FaXTwitter, 
-  FaMastodon 
+  FaXTwitter 
 } from 'react-icons/fa6';
-import { SiThreads, SiBluesky, SiSubstack } from 'react-icons/si';
+import { SiThreads } from 'react-icons/si';
 
 export interface FacebookPage {
   page_id?: string;
@@ -153,7 +152,18 @@ export function ConnectNewChannelModal({
     }, 2000);
   };
 
-  const channels = [
+interface ChannelItem {
+  id: string;
+  name: string;
+  desc: string;
+  icon: React.ReactNode;
+  colorBg: string;
+  connected?: boolean;
+  connectedLabel?: string;
+  badge?: string;
+}
+
+  const channels: ChannelItem[] = [
     {
       id: 'instagram',
       name: 'Instagram',
@@ -187,21 +197,6 @@ export function ConnectNewChannelModal({
       connectedLabel: isFbConnected ? (fbPages[0]?.page_name || fbPages[0]?.name) : undefined
     },
     {
-      id: 'bluesky',
-      name: 'Bluesky',
-      desc: 'Profile',
-      icon: <SiBluesky className="w-5 h-5 text-white" />,
-      colorBg: 'bg-[#0285FF]',
-    },
-    {
-      id: 'substack',
-      name: 'Substack',
-      desc: 'Profile',
-      icon: <SiSubstack className="w-4 h-4 text-white" />,
-      colorBg: 'bg-[#FF6719]',
-      badge: 'New',
-    },
-    {
       id: 'youtube',
       name: 'YouTube',
       desc: 'Channel',
@@ -214,13 +209,6 @@ export function ConnectNewChannelModal({
       desc: 'Business or Personal',
       icon: <FaTiktok className="w-5 h-5 text-white" />,
       colorBg: 'bg-black text-white',
-    },
-    {
-      id: 'mastodon',
-      name: 'Mastodon',
-      desc: 'Profile',
-      icon: <FaMastodon className="w-5 h-5 text-white" />,
-      colorBg: 'bg-[#6364FF]',
     },
     {
       id: 'pinterest',
@@ -296,7 +284,7 @@ export function ConnectNewChannelModal({
                 onClick={() => handleSelectChannel(channel.id)}
                 className="relative bg-white border border-gray-200/90 hover:border-gray-300 rounded-2xl p-6 py-7 flex flex-col items-center justify-center text-center cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 group"
               >
-                {/* "New" Badge for Substack */}
+                {/* "New" Badge */}
                 {channel.badge && (
                   <span className="absolute top-3.5 right-3.5 text-[10px] font-bold text-purple-700 bg-purple-100/80 px-2 py-0.5 rounded-full tracking-wide">
                     {channel.badge}

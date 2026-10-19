@@ -16,9 +16,9 @@ import {
 } from 'lucide-react';
 import {
   FaLinkedinIn, FaPinterestP, FaYoutube, FaXTwitter,
-  FaGoogle, FaInstagram, FaMastodon, FaTiktok, FaFacebookF
+  FaGoogle, FaInstagram, FaTiktok, FaFacebookF
 } from 'react-icons/fa6';
-import { SiBluesky, SiThreads, SiSubstack } from 'react-icons/si';
+import { SiThreads } from 'react-icons/si';
 
 type MegaMenuItem = {
   icon?: LucideIcon;
@@ -44,9 +44,6 @@ const INTEGRATION_CHANNELS: IntegrationItem[] = [
   { name: 'Threads', color: '#1a1a1a', icon: <SiThreads className="w-3.5 h-3.5 text-white" /> },
   { name: 'Pinterest', color: '#E60023', icon: <FaPinterestP className="w-3.5 h-3.5 text-white" /> },
   { name: 'Google Business Profile', color: '#4285F4', icon: <FaGoogle className="w-3.5 h-3.5 text-white" /> },
-  { name: 'Bluesky', color: '#0085FF', icon: <SiBluesky className="w-3 h-3 text-white" /> },
-  { name: 'Mastodon', color: '#6364FF', icon: <FaMastodon className="w-3 h-3 text-white" /> },
-  { name: 'Substack', color: '#FF6719', icon: <SiSubstack className="w-3 h-3 text-white" /> },
 ];
 
 type NavItem = {

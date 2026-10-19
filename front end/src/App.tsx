@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Nav } from './components/Nav';
 import { Hero } from './components/Hero';
 import { TrustedBy } from './components/TrustedBy';
-import { Channels } from './components/Channels';
 import { CoreFeatures } from './components/CoreFeatures';
 import { MoreFeatures } from './components/MoreFeatures';
 import { AISection } from './components/AISection';
@@ -322,9 +321,7 @@ export default function App() {
         </div>
       ) : (
         <main className="pt-16">
-          <Hero />
-          <TrustedBy />
-          <Channels onSelectChannel={() => {
+          <Hero onSelectChannel={() => {
             if (!user) {
               setView('login');
               window.location.hash = '#login';
@@ -333,6 +330,7 @@ export default function App() {
               window.location.hash = '#dashboard';
             }
           }} />
+          <TrustedBy />
           <CoreFeatures />
           <MoreFeatures />
           <AISection />

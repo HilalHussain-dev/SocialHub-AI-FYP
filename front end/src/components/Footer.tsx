@@ -18,12 +18,12 @@ const FOOTER_COLS = [
   },
   {
     heading: 'Channels',
-    links: ['Instagram', 'TikTok', 'Facebook', 'LinkedIn', 'X / Twitter', 'Pinterest', 'Threads', 'Bluesky', 'YouTube', 'Mastodon'],
+    links: ['Instagram', 'TikTok', 'Facebook', 'LinkedIn', 'X / Twitter', 'Pinterest', 'Threads', 'YouTube'],
   },
 
   {
     heading: 'Resources',
-    links: ['Blog', 'Help Center', 'Podcast', 'Free Tools', 'Content Library', 'Browser Extension', 'Free Templates'],
+    links: ['Blog', 'Help Center', 'Podcast', 'Content Library', 'Browser Extension', 'Free Templates'],
   },
   {
     heading: 'Company',
@@ -70,19 +70,6 @@ export function Footer() {
           </div>
         </div>
 
-        {/* Free tools row */}
-        <div className="border-t border-gray-200 pt-8 pb-6">
-          <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Free Tools</div>
-          <div className="flex flex-wrap gap-x-5 gap-y-2">
-            {[
-              'Instagram Caption Generator', 'Twitter Bio Generator', 'LinkedIn Post Generator',
-              'Hashtag Generator', 'Social Media Calendar', 'Image Resizer',
-              'Video Thumbnail Maker', 'Bio Link Creator', 'Post Idea Generator',
-            ].map((tool) => (
-              <a key={tool} href="#" className="text-xs text-gray-500 hover:text-gray-900 transition-colors">{tool}</a>
-            ))}
-          </div>
-        </div>
 
         {/* Bottom bar */}
         <div className="border-t border-gray-200 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">

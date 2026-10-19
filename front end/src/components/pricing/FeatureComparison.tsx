@@ -16,7 +16,7 @@ const SECTIONS = [
     title: 'Publishing',
     features: [
       { name: 'Scheduled posts per channel', desc: 'The number of scheduled posts per channel at one time.', free: '10', essentials: 'UNLIMITED', team: 'UNLIMITED' },
-      { name: 'Threaded posts', desc: 'Publish threads to X, Bluesky, Threads, and Mastodon.', free: '1', essentials: 'UNLIMITED', team: 'UNLIMITED' },
+      { name: 'Threaded posts', desc: 'Publish threads to X and Threads.', free: '1', essentials: 'UNLIMITED', team: 'UNLIMITED' },
       { name: 'Queue', desc: 'Create a queue of posts that you can re-arrange or shuffle.', free: true, essentials: true, team: true },
       { name: 'First comment scheduling', desc: 'Schedule a first comment with your Instagram, Facebook, or LinkedIn posts.', free: false, essentials: true, team: true },
     ]

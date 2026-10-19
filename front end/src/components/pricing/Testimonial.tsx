@@ -1,6 +1,5 @@
 import React from 'react';
-import { FaLinkedinIn, FaPinterestP, FaYoutube, FaXTwitter, FaInstagram, FaMastodon, FaTiktok, FaFacebookF, FaShopify } from 'react-icons/fa6';
-import { SiBluesky } from 'react-icons/si';
+import { FaLinkedinIn, FaPinterestP, FaYoutube, FaXTwitter, FaInstagram, FaTiktok, FaFacebookF, FaShopify } from 'react-icons/fa6';
 
 export function Testimonial() {
   return (
@@ -18,9 +17,7 @@ export function Testimonial() {
           <div className="w-10 h-10 rounded-lg bg-[#FF0000] flex items-center justify-center"><FaYoutube className="w-5 h-5 text-white" /></div>
           <div className="w-10 h-10 rounded-lg bg-[#010101] flex items-center justify-center"><FaTiktok className="w-5 h-5 text-white" /></div>
           <div className="w-10 h-10 rounded-lg bg-[#1877F2] flex items-center justify-center"><FaFacebookF className="w-5 h-5 text-white" /></div>
-          <div className="w-10 h-10 rounded-lg bg-[#6364FF] flex items-center justify-center"><FaMastodon className="w-5 h-5 text-white" /></div>
           <div className="w-10 h-10 rounded-lg bg-[#95BF47] flex items-center justify-center"><FaShopify className="w-5 h-5 text-white" /></div>
-          <div className="w-10 h-10 rounded-lg bg-[#0085FF] flex items-center justify-center"><SiBluesky className="w-5 h-5 text-white" /></div>
         </div>
       </div>
 
