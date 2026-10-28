@@ -24,8 +24,8 @@ import {
   Send,
   Info
 } from 'lucide-react';
-import { FaFacebook, FaInstagram, FaLinkedinIn, FaThreads } from 'react-icons/fa6';
-import { ConnectNewChannelModal } from './ConnectNewChannelModal';
+import { FaFacebook, FaInstagram, FaLinkedinIn, FaThreads, FaPinterestP } from 'react-icons/fa6';
+import { ConnectNewChannelModal, type PinterestAccount } from './ConnectNewChannelModal';
 
 interface BufferDashboardProps {
   user: { id: string; email: string; name?: string };
@@ -50,6 +50,13 @@ interface InstagramAccount {
   name?: string;
 }
 
+interface PinterestBoard {
+  id: string;
+  name: string;
+  privacy?: string;
+  description?: string;
+}
+
 interface PostRecord {
   id: string;
   channel: string;
@@ -68,6 +75,8 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
   // Channel state
   const [fbPages, setFbPages] = useState<FacebookPage[]>([]);
   const [igAccounts, setIgAccounts] = useState<InstagramAccount[]>([]);
+  const [pinterestAccounts, setPinterestAccounts] = useState<PinterestAccount[]>([]);
+  const [pinterestBoards, setPinterestBoards] = useState<PinterestBoard[]>([]);
   const [loadingChannels, setLoadingChannels] = useState(false);
 
   // Post history
@@ -82,8 +91,13 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
   // Post Composer State
   const [postToFb, setPostToFb] = useState(true);
   const [postToIg, setPostToIg] = useState(false);
+  const [postToPinterest, setPostToPinterest] = useState(false);
   const [selectedFbPageId, setSelectedFbPageId] = useState<string>('');
   const [selectedIgAccountId, setSelectedIgAccountId] = useState<string>('');
+  const [selectedPinAccountId, setSelectedPinAccountId] = useState<string>('');
+  const [selectedPinBoardId, setSelectedPinBoardId] = useState<string>('');
+  const [pinTitle, setPinTitle] = useState('');
+  const [pinLink, setPinLink] = useState('');
   const [postText, setPostText] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -96,9 +110,10 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
   const loadChannels = async () => {
     setLoadingChannels(true);
     try {
-      const [fbRes, igRes] = await Promise.all([
+      const [fbRes, igRes, pinRes] = await Promise.all([
         fetch(`${apiUrl}/api/facebook/pages?_t=${Date.now()}`, { credentials: 'include', cache: 'no-store' }),
-        fetch(`${apiUrl}/api/instagram/accounts?_t=${Date.now()}`, { credentials: 'include', cache: 'no-store' })
+        fetch(`${apiUrl}/api/instagram/accounts?_t=${Date.now()}`, { credentials: 'include', cache: 'no-store' }),
+        fetch(`${apiUrl}/api/pinterest/accounts?_t=${Date.now()}`, { credentials: 'include', cache: 'no-store' }),
       ]);
 
       if (fbRes.ok) {
@@ -114,12 +129,41 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
         setIgAccounts(accounts);
         if (accounts.length > 0) setSelectedIgAccountId(accounts[0].instagram_business_id || accounts[0].id || '');
       }
+
+      if (pinRes.ok) {
+        const pinData = await pinRes.json();
+        const accounts = pinData.accounts || [];
+        setPinterestAccounts(accounts);
+        if (accounts.length > 0) {
+          const activePinId = accounts[0].pinterest_user_id || accounts[0].id || '';
+          setSelectedPinAccountId(activePinId);
+
+          // Fetch boards for active Pinterest account
+          try {
+            const boardsRes = await fetch(`${apiUrl}/api/pinterest/boards?accountId=${encodeURIComponent(activePinId)}&_t=${Date.now()}`, {
+              credentials: 'include',
+              cache: 'no-store',
+            });
+            if (boardsRes.ok) {
+              const boardsData = await boardsRes.json();
+              const bList = boardsData.boards || [];
+              setPinterestBoards(bList);
+              if (bList.length > 0) setSelectedPinBoardId(bList[0].id);
+            }
+          } catch (bErr) {
+            console.warn('Error fetching Pinterest boards:', bErr);
+          }
+        } else {
+          setPinterestBoards([]);
+        }
+      }
     } catch (e) {
       console.error('Error fetching channels:', e);
     } finally {
       setLoadingChannels(false);
     }
   };
+
 
   const loadPosts = async () => {
     try {
@@ -139,7 +183,7 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
   }, [refreshTrigger]);
 
   // Calculate connected channels count out of 3
-  const connectedCount = (fbPages.length > 0 ? 1 : 0) + (igAccounts.length > 0 ? 1 : 0);
+  const connectedCount = (fbPages.length > 0 ? 1 : 0) + (igAccounts.length > 0 ? 1 : 0) + (pinterestAccounts.length > 0 ? 1 : 0);
 
   // File selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -159,8 +203,8 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
     setPublishError(null);
     setPublishSuccess(null);
 
-    if (!postToFb && !postToIg) {
-      setPublishError('Please select at least one channel (Facebook or Instagram).');
+    if (!postToFb && !postToIg && !postToPinterest) {
+      setPublishError('Please select at least one channel (Facebook, Instagram, or Pinterest).');
       return;
     }
 
@@ -169,7 +213,12 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
       return;
     }
 
-    if (postToFb && !postText.trim() && !imageFile && !imageUrl.trim()) {
+    if (postToPinterest && !imageFile && !imageUrl.trim()) {
+      setPublishError('Pinterest requires an image. Please attach an image file or provide a public image URL.');
+      return;
+    }
+
+    if ((postToFb || postToPinterest) && !postText.trim() && !imageFile && !imageUrl.trim()) {
       setPublishError('Please enter some text or attach an image.');
       return;
     }
@@ -246,8 +295,52 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
         messages.push(`Instagram: Published successfully! (ID: ${igData.postId})`);
       }
 
+      // Pinterest Publish
+      if (postToPinterest) {
+        const targetPinId = selectedPinAccountId || pinterestAccounts[0]?.pinterest_user_id || pinterestAccounts[0]?.id;
+        const targetBoardId = selectedPinBoardId || pinterestBoards[0]?.id;
+
+        if (!targetPinId && pinterestAccounts.length === 0) {
+          throw new Error('Please connect a Pinterest account first.');
+        }
+
+        let pinRes: Response;
+        if (imageFile) {
+          const formData = new FormData();
+          if (targetPinId) formData.append('accountId', targetPinId);
+          if (targetBoardId) formData.append('boardId', targetBoardId);
+          formData.append('title', pinTitle.trim() || postText.trim().slice(0, 60));
+          formData.append('description', postText.trim());
+          if (pinLink.trim()) formData.append('link', pinLink.trim());
+          formData.append('image', imageFile);
+          pinRes = await fetch(`${apiUrl}/api/auth/pinterest/post`, { method: 'POST', body: formData, credentials: 'include' });
+        } else {
+          pinRes = await fetch(`${apiUrl}/api/auth/pinterest/post`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              accountId: targetPinId,
+              boardId: targetBoardId,
+              title: pinTitle.trim() || postText.trim().slice(0, 60),
+              description: postText.trim(),
+              link: pinLink.trim() || undefined,
+              imageUrl: imageUrl.trim(),
+            }),
+          });
+        }
+
+        const pinData = await pinRes.json();
+        if (!pinRes.ok || !pinData.success) {
+          throw new Error(pinData.error || 'Failed to publish to Pinterest.');
+        }
+        messages.push(`Pinterest: Pin published successfully! (ID: ${pinData.postId})`);
+      }
+
       setPublishSuccess(messages.join(' • '));
       setPostText('');
+      setPinTitle('');
+      setPinLink('');
       setImageFile(null);
       setImagePreview(null);
       setImageUrl('');
@@ -262,6 +355,7 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
       setPublishing(false);
     }
   };
+
 
   // Format greeting username
   const rawUsername = user.name || user.email.split('@')[0];
@@ -418,6 +512,17 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
                 <FaFacebook />
               </button>
 
+              {/* Pinterest */}
+              <button
+                onClick={() => setChannelModalOpen(true)}
+                title={pinterestAccounts.length > 0 ? `Connected: @${pinterestAccounts[0].username}` : "Connect Pinterest"}
+                className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs cursor-pointer transition ${
+                  pinterestAccounts.length > 0 ? 'bg-[#E60023] ring-2 ring-red-300' : 'bg-gray-300 hover:bg-[#E60023]'
+                }`}
+              >
+                <FaPinterestP />
+              </button>
+
               {/* Plus Button */}
               <button
                 onClick={() => setChannelModalOpen(true)}
@@ -426,6 +531,7 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
               >
                 <Plus className="w-3.5 h-3.5" />
               </button>
+
             </div>
           </div>
         </div>
@@ -690,7 +796,8 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
                     {postsHistory.slice(0, 3).map((p) => (
                       <div key={p.id} className="p-3 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between text-xs">
                         <div className="flex items-center gap-2.5">
-                          <span className={`w-2 h-2 rounded-full ${p.channel === 'instagram' ? 'bg-[#E1306C]' : 'bg-[#1877F2]'}`} />
+                          <span className={`w-2 h-2 rounded-full ${p.channel === 'instagram' ? 'bg-[#E1306C]' : (p.channel === 'pinterest' ? 'bg-[#E60023]' : 'bg-[#1877F2]')}`} />
+
                           <p className="font-semibold text-gray-800 line-clamp-1">{p.message || 'Photo Post'}</p>
                         </div>
                         <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
@@ -753,38 +860,118 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
                 <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
                   Select Channels:
                 </label>
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-2.5">
                   {/* Facebook Pill */}
                   <div
                     onClick={() => setPostToFb(!postToFb)}
-                    className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border-2 transition cursor-pointer ${
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border-2 transition cursor-pointer ${
                       postToFb ? 'border-blue-600 bg-blue-50 text-blue-900 font-bold' : 'border-gray-200 text-gray-500'
                     }`}
                   >
-                    <FaFacebook className="text-[#1877F2] text-lg" />
-                    <span className="text-xs">Facebook Page ({fbPages.length > 0 ? (fbPages[0].page_name || fbPages[0].name) : 'Connect first'})</span>
+                    <FaFacebook className="text-[#1877F2] text-base shrink-0" />
+                    <span className="text-xs">Facebook ({fbPages.length > 0 ? (fbPages[0].page_name || fbPages[0].name) : 'Connect'})</span>
                   </div>
 
                   {/* Instagram Pill */}
                   <div
                     onClick={() => setPostToIg(!postToIg)}
-                    className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border-2 transition cursor-pointer ${
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border-2 transition cursor-pointer ${
                       postToIg ? 'border-pink-500 bg-pink-50 text-pink-900 font-bold' : 'border-gray-200 text-gray-500'
                     }`}
                   >
-                    <FaInstagram className="text-[#E1306C] text-lg" />
-                    <span className="text-xs">Instagram ({igAccounts.length > 0 ? `@${igAccounts[0].username}` : 'Connect first'})</span>
+                    <FaInstagram className="text-[#E1306C] text-base shrink-0" />
+                    <span className="text-xs">Instagram ({igAccounts.length > 0 ? `@${igAccounts[0].username}` : 'Connect'})</span>
+                  </div>
+
+                  {/* Pinterest Pill */}
+                  <div
+                    onClick={() => setPostToPinterest(!postToPinterest)}
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border-2 transition cursor-pointer ${
+                      postToPinterest ? 'border-red-600 bg-red-50 text-red-900 font-bold' : 'border-gray-200 text-gray-500'
+                    }`}
+                  >
+                    <FaPinterestP className="text-[#E60023] text-base shrink-0" />
+                    <span className="text-xs">Pinterest ({pinterestAccounts.length > 0 ? `@${pinterestAccounts[0].username}` : 'Connect'})</span>
                   </div>
                 </div>
               </div>
 
+              {/* Pinterest Board & Options (Conditional) */}
+              {postToPinterest && (
+                <div className="p-4 bg-red-50/50 border border-red-200/80 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-red-950 flex items-center gap-1.5">
+                      <FaPinterestP className="text-[#E60023]" /> Pinterest Settings
+                    </span>
+                    <span className="text-[11px] text-red-700 font-medium">
+                      {pinterestBoards.length} board(s) found
+                    </span>
+                  </div>
+
+                  {/* Board Selection */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                      Choose Board:
+                    </label>
+                    {pinterestBoards.length > 0 ? (
+                      <select
+                        value={selectedPinBoardId || (pinterestBoards[0]?.id || '')}
+                        onChange={(e) => setSelectedPinBoardId(e.target.value)}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-600"
+                      >
+                        {pinterestBoards.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.name} {b.privacy ? `(${b.privacy})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs">
+                        {pinterestAccounts.length === 0 ? 'Please connect a Pinterest account to select boards.' : 'No boards found on this account. A default board will be used or created.'}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {/* Pin Title */}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                        Pin Title (optional):
+                      </label>
+                      <input
+                        type="text"
+                        value={pinTitle}
+                        onChange={(e) => setPinTitle(e.target.value)}
+                        placeholder="Catchy Pin Title"
+                        maxLength={100}
+                        className="w-full px-3 py-1.5 text-xs border border-gray-200 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-600"
+                      />
+                    </div>
+
+                    {/* Pin Link */}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                        Destination Link (optional):
+                      </label>
+                      <input
+                        type="url"
+                        value={pinLink}
+                        onChange={(e) => setPinLink(e.target.value)}
+                        placeholder="https://example.com"
+                        className="w-full px-3 py-1.5 text-xs border border-gray-200 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-600"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Text Area */}
               <div>
                 <textarea
-                  rows={4}
+                  rows={3}
                   value={postText}
                   onChange={(e) => setPostText(e.target.value)}
-                  placeholder="What would you like to share?"
+                  placeholder="What would you like to share? (Used as Pin description for Pinterest)"
                   className="w-full p-4 border border-gray-200 rounded-2xl text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"
                 />
               </div>
@@ -792,8 +979,9 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
               {/* Media Upload */}
               <div>
                 <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
-                  Attach Photo / Media {postToIg && <span className="text-rose-500">* (Required for Instagram)</span>}
+                  Attach Photo / Media {(postToIg || postToPinterest) && <span className="text-rose-500">* (Required for Instagram & Pinterest)</span>}
                 </label>
+
 
                 <div className="border-2 border-dashed border-gray-200 hover:border-gray-400 rounded-2xl p-4 text-center cursor-pointer relative bg-gray-50/50">
                   <input
@@ -886,8 +1074,10 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
         apiUrl={apiUrl}
         fbPages={fbPages}
         igAccounts={igAccounts}
+        pinterestAccounts={pinterestAccounts}
         onChannelConnected={loadChannels}
       />
+
 
     </div>
   );
