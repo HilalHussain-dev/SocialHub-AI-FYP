@@ -19,3 +19,8 @@ INSTAGRAM_BUSINESS_ACCOUNT_ID=
 
 # Public Base URL (Optional: needed if posting local R2 images to Instagram while on localhost, e.g. via ngrok/tunnel)
 PUBLIC_BASE_URL=
+
+# Pinterest App Credentials (from developers.pinterest.com)
+PINTEREST_APP_ID=
+PINTEREST_APP_SECRET=
+PINTEREST_REDIRECT_URI=http://localhost:8787/api/pinterest/callback

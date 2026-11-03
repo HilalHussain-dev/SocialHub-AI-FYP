@@ -36,12 +36,21 @@ export interface InstagramAccount {
   name?: string;
 }
 
+export interface PinterestAccount {
+  id?: string;
+  pinterest_user_id?: string;
+  username: string;
+  business_name?: string;
+  profile_image?: string;
+}
+
 interface ConnectNewChannelModalProps {
   isOpen: boolean;
   onClose: () => void;
   apiUrl: string;
   fbPages: FacebookPage[];
   igAccounts: InstagramAccount[];
+  pinterestAccounts?: PinterestAccount[];
   onChannelConnected?: () => void;
 }
 
@@ -51,6 +60,7 @@ export function ConnectNewChannelModal({
   apiUrl,
   fbPages,
   igAccounts,
+  pinterestAccounts = [],
   onChannelConnected,
 }: ConnectNewChannelModalProps) {
   const [requestChannelOpen, setRequestChannelOpen] = useState(false);
@@ -61,12 +71,14 @@ export function ConnectNewChannelModal({
   // Switcher modal states
   const [fbSwitcherOpen, setFbSwitcherOpen] = useState(false);
   const [igSwitcherOpen, setIgSwitcherOpen] = useState(false);
+  const [pinSwitcherOpen, setPinSwitcherOpen] = useState(false);
   const [activatingId, setActivatingId] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
   const isFbConnected = fbPages.length > 0;
   const isIgConnected = igAccounts.length > 0;
+  const isPinConnected = pinterestAccounts.length > 0;
 
   const handleSelectChannel = (channelId: string) => {
     switch (channelId) {
@@ -82,6 +94,13 @@ export function ConnectNewChannelModal({
           setIgSwitcherOpen(true);
         } else {
           window.location.href = `${apiUrl}/api/auth/instagram/connect`;
+        }
+        break;
+      case 'pinterest':
+        if (pinterestAccounts.length > 1) {
+          setPinSwitcherOpen(true);
+        } else {
+          window.location.href = `${apiUrl}/api/auth/pinterest/connect`;
         }
         break;
       case 'request':
@@ -137,6 +156,26 @@ export function ConnectNewChannelModal({
       }
     } catch (err) {
       console.error('Error activating IG account:', err);
+    } finally {
+      setActivatingId(null);
+    }
+  };
+
+  const handleActivatePinAccount = async (accountId: string) => {
+    setActivatingId(accountId);
+    try {
+      const res = await fetch(`${apiUrl}/api/pinterest/accounts/activate`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountId }),
+      });
+      if (res.ok) {
+        if (onChannelConnected) onChannelConnected();
+        setPinSwitcherOpen(false);
+      }
+    } catch (err) {
+      console.error('Error activating Pinterest account:', err);
     } finally {
       setActivatingId(null);
     }
@@ -228,6 +267,8 @@ export function ConnectNewChannelModal({
       desc: 'Business or Profile',
       icon: <FaPinterestP className="w-5 h-5 text-white" />,
       colorBg: 'bg-[#E60023]',
+      connected: isPinConnected,
+      connectedLabel: isPinConnected ? `@${pinterestAccounts[0]?.username}` : undefined
     },
     {
       id: 'google-business',
@@ -327,11 +368,12 @@ export function ConnectNewChannelModal({
                       <Check className="w-3 h-3 stroke-[3]" />
                       {channel.connectedLabel ? `Connected (${channel.connectedLabel})` : 'Connected'}
                     </span>
-                    {((channel.id === 'facebook' && fbPages.length > 1) || (channel.id === 'instagram' && igAccounts.length > 1)) && (
+                    {((channel.id === 'facebook' && fbPages.length > 1) || (channel.id === 'instagram' && igAccounts.length > 1) || (channel.id === 'pinterest' && pinterestAccounts.length > 1)) && (
                       <span className="text-[10px] text-blue-600 font-semibold hover:underline">
-                        Switch active ({channel.id === 'facebook' ? fbPages.length : igAccounts.length} available)
+                        Switch active ({channel.id === 'facebook' ? fbPages.length : (channel.id === 'instagram' ? igAccounts.length : pinterestAccounts.length)} available)
                       </span>
                     )}
+
                   </div>
                 )}
               </div>
@@ -511,6 +553,93 @@ export function ConnectNewChannelModal({
           </div>
         </div>
       )}
+
+      {/* Pinterest Account Switcher Modal */}
+      {pinSwitcherOpen && (
+        <div 
+          className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs"
+          onClick={() => setPinSwitcherOpen(false)}
+        >
+          <div 
+            className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl border border-gray-200 space-y-4 animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#E60023] text-white flex items-center justify-center">
+                  <FaPinterestP className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-gray-900">Switch Pinterest Account</h3>
+                  <p className="text-[11px] text-gray-400">Select which connected account you want to use</p>
+                </div>
+              </div>
+              <button onClick={() => setPinSwitcherOpen(false)} className="text-gray-400 hover:text-gray-600 p-1">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* List of Pinterest Accounts */}
+            <div className="max-h-60 overflow-y-auto space-y-2 py-1">
+              {pinterestAccounts.map((account, idx) => {
+                const accountId = account.pinterest_user_id || account.id || '';
+                const username = account.username;
+                const isActive = idx === 0;
+                const isActivating = activatingId === accountId;
+
+                return (
+                  <button
+                    key={accountId || idx}
+                    onClick={() => handleActivatePinAccount(accountId)}
+                    disabled={isActivating || isActive}
+                    className={`w-full flex items-center justify-between p-3 rounded-xl border text-left transition ${
+                      isActive 
+                        ? 'border-emerald-500 bg-emerald-50/50 text-emerald-950 font-bold'
+                        : 'border-gray-200 hover:border-red-400 hover:bg-red-50/30 text-gray-800'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-[#E60023] text-white flex items-center justify-center font-bold text-xs shrink-0">
+                        {username ? username.charAt(0).toUpperCase() : 'P'}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs truncate">@{username}</p>
+                        {account.business_name && <p className="text-[10px] text-gray-400 truncate">{account.business_name}</p>}
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 ml-2">
+                      {isActivating ? (
+                        <Loader2 className="w-4 h-4 text-red-600 animate-spin" />
+                      ) : isActive ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full font-bold">
+                          <Check className="w-3 h-3" /> Active
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-red-600 font-semibold hover:underline">Select</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Action buttons */}
+            <div className="border-t border-gray-100 pt-3 flex flex-col gap-2">
+              <button
+                onClick={() => {
+                  window.location.href = `${apiUrl}/api/auth/pinterest/connect`;
+                }}
+                className="w-full py-2 px-3 border border-gray-200 hover:bg-gray-50 text-gray-700 font-medium text-xs rounded-xl flex items-center justify-center gap-1.5 transition"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Connect / Authorize more accounts with Pinterest
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {/* Info / Connect Channel Sub-Modal for other channels */}
       {infoModal && (

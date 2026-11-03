@@ -17,12 +17,23 @@ import {
 	handleInstagramPost,
 } from "./routes/instagram.js";
 import {
+	pinterestAuth,
+	pinterestCallback,
+	getPinterestAccountsForUser,
+	getPinterestBoardsForUser,
+	activatePinterestAccount,
+	handlePinterestPost,
+} from "./routes/pinterest.js";
+import {
     handleRegister,
     handleLogin,
     handleMe,
     handleLogout
 } from "./routes/auth.js";
+
+// Cloudflare Worker entry point for SocialHub AI
 import { handleOptions, withCors } from "./utils/cors.js";
+
 
 export default {
 	async fetch(request, env, ctx) {
@@ -148,6 +159,54 @@ export default {
 			url.pathname === "/api/instagram/accounts/activate"
 		) {
 			return await activateInstagramAccount(request, env);
+		}
+
+		// Pinterest OAuth Start
+		if (
+			request.method === "GET" &&
+			(url.pathname === "/api/pinterest/auth" || url.pathname === "/api/auth/pinterest/connect" || url.pathname === "/api/auth/pinterest")
+		) {
+			return await pinterestAuth(request, env);
+		}
+
+		// Pinterest OAuth callback from Pinterest redirect
+		if (
+			request.method === "GET" &&
+			(url.pathname === "/api/pinterest/callback" || url.pathname === "/api/auth/pinterest/callback")
+		) {
+			return await pinterestCallback(request, env);
+		}
+
+		// Get connected Pinterest accounts
+		if (
+			request.method === "GET" &&
+			(url.pathname === "/api/pinterest/accounts" || url.pathname === "/api/auth/pinterest/accounts")
+		) {
+			return await getPinterestAccountsForUser(request, env);
+		}
+
+		// Get Pinterest boards
+		if (
+			request.method === "GET" &&
+			(url.pathname === "/api/pinterest/boards" || url.pathname === "/api/auth/pinterest/boards")
+		) {
+			return await getPinterestBoardsForUser(request, env);
+		}
+
+		// Activate / Switch Pinterest Account
+		if (
+			request.method === "POST" &&
+			url.pathname === "/api/pinterest/accounts/activate"
+		) {
+			return await activatePinterestAccount(request, env);
+		}
+
+		// Post / Publish Pin to Pinterest
+		if (
+			request.method === "POST" &&
+			(url.pathname === "/api/pinterest/post" || url.pathname === "/api/auth/pinterest/post")
+		) {
+			return await handlePinterestPost(request, env);
 		}
 
 

@@ -36,7 +36,7 @@ export default function App() {
     if (typeof window !== 'undefined') {
       const h = window.location.hash;
       const p = window.location.pathname;
-      if (h === '#admin' || h === '#dashboard' || p === '/dashboard' || p === '/facebook/callback' || p === '/instagram/callback') {
+      if (h === '#admin' || h === '#dashboard' || p === '/dashboard' || p === '/facebook/callback' || p === '/instagram/callback' || p === '/pinterest/callback') {
         return 'dashboard';
       }
       if (h === '#login' || h === '#register' || h === '#signup' || p === '/login' || p === '/register' || p === '/signup') {
@@ -88,7 +88,7 @@ export default function App() {
       setCurrentPath(p);
       setCurrentHash(h);
 
-      if (h === '#admin' || h === '#dashboard' || p === '/dashboard' || p === '/facebook/callback' || p === '/instagram/callback') {
+      if (h === '#admin' || h === '#dashboard' || p === '/dashboard' || p === '/facebook/callback' || p === '/instagram/callback' || p === '/pinterest/callback') {
         updateView('dashboard');
       } else if (
         h === '#register' ||
@@ -157,14 +157,14 @@ export default function App() {
     checkSession();
   }, []);
 
-  // Handle OAuth Callbacks (/facebook/callback or /instagram/callback)
+  // Handle OAuth Callbacks (/facebook/callback, /instagram/callback, or /pinterest/callback)
   useEffect(() => {
-    const isCallback = currentPath === '/facebook/callback' || currentPath === '/instagram/callback' || window.location.pathname === '/facebook/callback' || window.location.pathname === '/instagram/callback';
+    const isCallback = currentPath === '/facebook/callback' || currentPath === '/instagram/callback' || currentPath === '/pinterest/callback' || window.location.pathname === '/facebook/callback' || window.location.pathname === '/instagram/callback' || window.location.pathname === '/pinterest/callback';
 
     if (isCallback) {
       const params = new URLSearchParams(window.location.search);
       const pendingKey = params.get('pending');
-      const platform = params.get('platform') as 'facebook' | 'instagram' | null;
+      const platform = params.get('platform') as 'facebook' | 'instagram' | 'pinterest' | null;
       const error = params.get('error');
 
       // Always stay in dashboard view
@@ -177,16 +177,23 @@ export default function App() {
         return;
       }
 
+      if (platform === 'pinterest') {
+        // Smoothly reload channels in dashboard
+        setChannelRefreshKey((prev) => prev + 1);
+      }
+
       if (pendingKey && platform) {
         setPickerPendingKey(pendingKey);
-        setPickerPlatform(platform);
+        if (platform === 'facebook' || platform === 'instagram') {
+          setPickerPlatform(platform);
+        }
 
         if (platform === 'facebook') {
           try {
             const pages = JSON.parse(params.get('pages') || '[]');
             setPickerFbPages(pages);
           } catch { setPickerFbPages([]); }
-        } else {
+        } else if (platform === 'instagram') {
           try {
             const accounts = JSON.parse(params.get('accounts') || '[]');
             setPickerIgAccounts(accounts);
@@ -202,6 +209,7 @@ export default function App() {
       window.location.hash = '#dashboard';
     }
   }, [currentPath]);
+
 
   const handleLoginSuccess = (loggedInUser: User) => {
     setUser(loggedInUser);
@@ -324,15 +332,6 @@ export default function App() {
         <main className="pt-16">
           <Hero />
           <TrustedBy />
-          <Channels onSelectChannel={() => {
-            if (!user) {
-              setView('login');
-              window.location.hash = '#login';
-            } else {
-              setView('dashboard');
-              window.location.hash = '#dashboard';
-            }
-          }} />
           <CoreFeatures />
           <MoreFeatures />
           <AISection />
