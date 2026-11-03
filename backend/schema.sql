@@ -72,3 +72,20 @@ CREATE TABLE IF NOT EXISTS pending_oauth_sessions (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS pinterest_accounts (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    pinterest_user_id TEXT NOT NULL,
+    username TEXT NOT NULL,
+    business_name TEXT,
+    profile_image TEXT,
+    access_token TEXT NOT NULL,
+    refresh_token TEXT,
+    token_expires_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, pinterest_user_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
