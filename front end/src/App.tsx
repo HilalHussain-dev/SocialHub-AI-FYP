@@ -332,15 +332,6 @@ export default function App() {
         <main className="pt-16">
           <Hero />
           <TrustedBy />
-          <Channels onSelectChannel={() => {
-            if (!user) {
-              setView('login');
-              window.location.hash = '#login';
-            } else {
-              setView('dashboard');
-              window.location.hash = '#dashboard';
-            }
-          }} />
           <CoreFeatures />
           <MoreFeatures />
           <AISection />
