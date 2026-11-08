@@ -57,6 +57,15 @@ interface PinterestBoard {
   description?: string;
 }
 
+interface LinkedInAccount {
+  id?: string;
+  linkedin_id?: string;
+  linkedin_urn?: string;
+  name: string;
+  email?: string;
+  profile_picture?: string;
+}
+
 interface PostRecord {
   id: string;
   channel: string;
@@ -77,6 +86,7 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
   const [igAccounts, setIgAccounts] = useState<InstagramAccount[]>([]);
   const [pinterestAccounts, setPinterestAccounts] = useState<PinterestAccount[]>([]);
   const [pinterestBoards, setPinterestBoards] = useState<PinterestBoard[]>([]);
+  const [linkedinAccounts, setLinkedinAccounts] = useState<LinkedInAccount[]>([]);
   const [loadingChannels, setLoadingChannels] = useState(false);
 
   // Post history
@@ -92,10 +102,12 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
   const [postToFb, setPostToFb] = useState(true);
   const [postToIg, setPostToIg] = useState(false);
   const [postToPinterest, setPostToPinterest] = useState(false);
+  const [postToLinkedIn, setPostToLinkedIn] = useState(false);
   const [selectedFbPageId, setSelectedFbPageId] = useState<string>('');
   const [selectedIgAccountId, setSelectedIgAccountId] = useState<string>('');
   const [selectedPinAccountId, setSelectedPinAccountId] = useState<string>('');
   const [selectedPinBoardId, setSelectedPinBoardId] = useState<string>('');
+  const [selectedLinkedInAccountId, setSelectedLinkedInAccountId] = useState<string>('');
   const [pinTitle, setPinTitle] = useState('');
   const [pinLink, setPinLink] = useState('');
   const [isCreatingBoard, setIsCreatingBoard] = useState(false);
@@ -113,10 +125,11 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
   const loadChannels = async () => {
     setLoadingChannels(true);
     try {
-      const [fbRes, igRes, pinRes] = await Promise.all([
+      const [fbRes, igRes, pinRes, liRes] = await Promise.all([
         fetch(`${apiUrl}/api/facebook/pages?_t=${Date.now()}`, { credentials: 'include', cache: 'no-store' }),
         fetch(`${apiUrl}/api/instagram/accounts?_t=${Date.now()}`, { credentials: 'include', cache: 'no-store' }),
         fetch(`${apiUrl}/api/pinterest/accounts?_t=${Date.now()}`, { credentials: 'include', cache: 'no-store' }),
+        fetch(`${apiUrl}/api/linkedin/accounts?_t=${Date.now()}`, { credentials: 'include', cache: 'no-store' }),
       ]);
 
       if (fbRes.ok) {
@@ -160,6 +173,13 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
           setPinterestBoards([]);
         }
       }
+
+      if (liRes.ok) {
+        const liData = await liRes.json();
+        const accounts = liData.accounts || [];
+        setLinkedinAccounts(accounts);
+        if (accounts.length > 0) setSelectedLinkedInAccountId(accounts[0].linkedin_id || accounts[0].id || '');
+      }
     } catch (e) {
       console.error('Error fetching channels:', e);
     } finally {
@@ -185,8 +205,8 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
     loadPosts();
   }, [refreshTrigger]);
 
-  // Calculate connected channels count out of 3
-  const connectedCount = (fbPages.length > 0 ? 1 : 0) + (igAccounts.length > 0 ? 1 : 0) + (pinterestAccounts.length > 0 ? 1 : 0);
+  // Calculate connected channels count out of 4
+  const connectedCount = (fbPages.length > 0 ? 1 : 0) + (igAccounts.length > 0 ? 1 : 0) + (pinterestAccounts.length > 0 ? 1 : 0) + (linkedinAccounts.length > 0 ? 1 : 0);
 
   // File selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -237,8 +257,8 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
     setPublishError(null);
     setPublishSuccess(null);
 
-    if (!postToFb && !postToIg && !postToPinterest) {
-      setPublishError('Please select at least one channel (Facebook, Instagram, or Pinterest).');
+    if (!postToFb && !postToIg && !postToPinterest && !postToLinkedIn) {
+      setPublishError('Please select at least one channel (Facebook, Instagram, Pinterest, or LinkedIn).');
       return;
     }
 
@@ -252,7 +272,7 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
       return;
     }
 
-    if ((postToFb || postToPinterest) && !postText.trim() && !imageFile && !imageUrl.trim()) {
+    if ((postToFb || postToPinterest || postToLinkedIn) && !postText.trim() && !imageFile && !imageUrl.trim()) {
       setPublishError('Please enter some text or attach an image.');
       return;
     }
@@ -384,6 +404,41 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
             })
             .catch(() => {});
         }
+      }
+
+      // LinkedIn Publish
+      if (postToLinkedIn) {
+        const targetLinkedInId = selectedLinkedInAccountId || linkedinAccounts[0]?.linkedin_id || linkedinAccounts[0]?.id;
+
+        if (!targetLinkedInId && linkedinAccounts.length === 0) {
+          throw new Error('Please connect a LinkedIn account first.');
+        }
+
+        let liRes: Response;
+        if (imageFile) {
+          const formData = new FormData();
+          if (targetLinkedInId) formData.append('accountId', targetLinkedInId);
+          formData.append('message', postText.trim());
+          formData.append('image', imageFile);
+          liRes = await fetch(`${apiUrl}/api/auth/linkedin/post`, { method: 'POST', body: formData, credentials: 'include' });
+        } else {
+          liRes = await fetch(`${apiUrl}/api/auth/linkedin/post`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              accountId: targetLinkedInId,
+              message: postText.trim(),
+              imageUrl: imageUrl.trim() || undefined,
+            }),
+          });
+        }
+
+        const liData = await liRes.json();
+        if (!liRes.ok || !liData.success) {
+          throw new Error(liData.error || 'Failed to publish to LinkedIn.');
+        }
+        messages.push(`LinkedIn: Posted successfully! (ID: ${liData.postId})`);
       }
 
       setPublishSuccess(messages.join(' • '));
@@ -598,12 +653,12 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
                 <X className="w-3.5 h-3.5" />
               </button>
               <p className="text-xs font-semibold text-gray-800 mb-2">
-                {connectedCount}/3 channels connected
+                {connectedCount}/4 channels connected
               </p>
               <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
                 <div 
                   className="bg-[#a6e59a] h-full transition-all" 
-                  style={{ width: `${Math.min(100, (connectedCount / 3) * 100)}%` }} 
+                  style={{ width: `${Math.min(100, (connectedCount / 4) * 100)}%` }} 
                 />
               </div>
             </div>
@@ -942,6 +997,17 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
                     <FaPinterestP className="text-[#E60023] text-base shrink-0" />
                     <span className="text-xs">Pinterest ({pinterestAccounts.length > 0 ? `@${pinterestAccounts[0].username}` : 'Connect'})</span>
                   </div>
+
+                  {/* LinkedIn Pill */}
+                  <div
+                    onClick={() => setPostToLinkedIn(!postToLinkedIn)}
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border-2 transition cursor-pointer ${
+                      postToLinkedIn ? 'border-[#0A66C2] bg-blue-50 text-blue-900 font-bold' : 'border-gray-200 text-gray-500'
+                    }`}
+                  >
+                    <FaLinkedinIn className="text-[#0A66C2] text-base shrink-0" />
+                    <span className="text-xs">LinkedIn ({linkedinAccounts.length > 0 ? linkedinAccounts[0].name : 'Connect'})</span>
+                  </div>
                 </div>
               </div>
 
@@ -1167,6 +1233,7 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
         fbPages={fbPages}
         igAccounts={igAccounts}
         pinterestAccounts={pinterestAccounts}
+        linkedinAccounts={linkedinAccounts}
         onChannelConnected={loadChannels}
       />
 

@@ -36,7 +36,7 @@ export default function App() {
     if (typeof window !== 'undefined') {
       const h = window.location.hash;
       const p = window.location.pathname;
-      if (h === '#admin' || h === '#dashboard' || p === '/dashboard' || p === '/facebook/callback' || p === '/instagram/callback' || p === '/pinterest/callback') {
+      if (h === '#admin' || h === '#dashboard' || p === '/dashboard' || p === '/facebook/callback' || p === '/instagram/callback' || p === '/pinterest/callback' || p === '/linkedin/callback') {
         return 'dashboard';
       }
       if (h === '#login' || h === '#register' || h === '#signup' || p === '/login' || p === '/register' || p === '/signup') {
@@ -88,7 +88,7 @@ export default function App() {
       setCurrentPath(p);
       setCurrentHash(h);
 
-      if (h === '#admin' || h === '#dashboard' || p === '/dashboard' || p === '/facebook/callback' || p === '/instagram/callback' || p === '/pinterest/callback') {
+      if (h === '#admin' || h === '#dashboard' || p === '/dashboard' || p === '/facebook/callback' || p === '/instagram/callback' || p === '/pinterest/callback' || p === '/linkedin/callback') {
         updateView('dashboard');
       } else if (
         h === '#register' ||
@@ -157,14 +157,14 @@ export default function App() {
     checkSession();
   }, []);
 
-  // Handle OAuth Callbacks (/facebook/callback, /instagram/callback, or /pinterest/callback)
+  // Handle OAuth Callbacks (/facebook/callback, /instagram/callback, /pinterest/callback, or /linkedin/callback)
   useEffect(() => {
-    const isCallback = currentPath === '/facebook/callback' || currentPath === '/instagram/callback' || currentPath === '/pinterest/callback' || window.location.pathname === '/facebook/callback' || window.location.pathname === '/instagram/callback' || window.location.pathname === '/pinterest/callback';
+    const isCallback = currentPath === '/facebook/callback' || currentPath === '/instagram/callback' || currentPath === '/pinterest/callback' || currentPath === '/linkedin/callback' || window.location.pathname === '/facebook/callback' || window.location.pathname === '/instagram/callback' || window.location.pathname === '/pinterest/callback' || window.location.pathname === '/linkedin/callback';
 
     if (isCallback) {
       const params = new URLSearchParams(window.location.search);
       const pendingKey = params.get('pending');
-      const platform = params.get('platform') as 'facebook' | 'instagram' | 'pinterest' | null;
+      const platform = params.get('platform') as 'facebook' | 'instagram' | 'pinterest' | 'linkedin' | null;
       const error = params.get('error');
 
       // Always stay in dashboard view
@@ -177,7 +177,7 @@ export default function App() {
         return;
       }
 
-      if (platform === 'pinterest') {
+      if (platform === 'pinterest' || platform === 'linkedin') {
         // Smoothly reload channels in dashboard
         setChannelRefreshKey((prev) => prev + 1);
       }
