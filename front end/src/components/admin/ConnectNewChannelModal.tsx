@@ -44,6 +44,15 @@ export interface PinterestAccount {
   profile_image?: string;
 }
 
+export interface LinkedInAccount {
+  id?: string;
+  linkedin_id?: string;
+  linkedin_urn?: string;
+  name: string;
+  email?: string;
+  profile_picture?: string;
+}
+
 interface ConnectNewChannelModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -51,6 +60,7 @@ interface ConnectNewChannelModalProps {
   fbPages: FacebookPage[];
   igAccounts: InstagramAccount[];
   pinterestAccounts?: PinterestAccount[];
+  linkedinAccounts?: LinkedInAccount[];
   onChannelConnected?: () => void;
 }
 
@@ -61,6 +71,7 @@ export function ConnectNewChannelModal({
   fbPages,
   igAccounts,
   pinterestAccounts = [],
+  linkedinAccounts = [],
   onChannelConnected,
 }: ConnectNewChannelModalProps) {
   const [requestChannelOpen, setRequestChannelOpen] = useState(false);
@@ -72,6 +83,7 @@ export function ConnectNewChannelModal({
   const [fbSwitcherOpen, setFbSwitcherOpen] = useState(false);
   const [igSwitcherOpen, setIgSwitcherOpen] = useState(false);
   const [pinSwitcherOpen, setPinSwitcherOpen] = useState(false);
+  const [linkedinSwitcherOpen, setLinkedinSwitcherOpen] = useState(false);
   const [activatingId, setActivatingId] = useState<string | null>(null);
 
   if (!isOpen) return null;
@@ -79,6 +91,7 @@ export function ConnectNewChannelModal({
   const isFbConnected = fbPages.length > 0;
   const isIgConnected = igAccounts.length > 0;
   const isPinConnected = pinterestAccounts.length > 0;
+  const isLinkedInConnected = linkedinAccounts.length > 0;
 
   const handleSelectChannel = (channelId: string) => {
     switch (channelId) {
@@ -101,6 +114,13 @@ export function ConnectNewChannelModal({
           setPinSwitcherOpen(true);
         } else {
           window.location.href = `${apiUrl}/api/auth/pinterest/connect`;
+        }
+        break;
+      case 'linkedin':
+        if (linkedinAccounts.length > 1) {
+          setLinkedinSwitcherOpen(true);
+        } else {
+          window.location.href = `${apiUrl}/api/auth/linkedin/connect`;
         }
         break;
       case 'request':
@@ -181,6 +201,26 @@ export function ConnectNewChannelModal({
     }
   };
 
+  const handleActivateLinkedInAccount = async (accountId: string) => {
+    setActivatingId(accountId);
+    try {
+      const res = await fetch(`${apiUrl}/api/linkedin/accounts/activate`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountId }),
+      });
+      if (res.ok) {
+        if (onChannelConnected) onChannelConnected();
+        setLinkedinSwitcherOpen(false);
+      }
+    } catch (err) {
+      console.error('Error activating LinkedIn account:', err);
+    } finally {
+      setActivatingId(null);
+    }
+  };
+
   const handleRequestSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!requestedChannelName.trim()) return;
@@ -215,6 +255,8 @@ export function ConnectNewChannelModal({
       desc: 'Page or Profile',
       icon: <FaLinkedinIn className="w-5 h-5 text-white" />,
       colorBg: 'bg-[#0A66C2]',
+      connected: isLinkedInConnected,
+      connectedLabel: isLinkedInConnected ? (linkedinAccounts[0]?.name) : undefined
     },
     {
       id: 'facebook',
@@ -368,9 +410,9 @@ export function ConnectNewChannelModal({
                       <Check className="w-3 h-3 stroke-[3]" />
                       {channel.connectedLabel ? `Connected (${channel.connectedLabel})` : 'Connected'}
                     </span>
-                    {((channel.id === 'facebook' && fbPages.length > 1) || (channel.id === 'instagram' && igAccounts.length > 1) || (channel.id === 'pinterest' && pinterestAccounts.length > 1)) && (
+                    {((channel.id === 'facebook' && fbPages.length > 1) || (channel.id === 'instagram' && igAccounts.length > 1) || (channel.id === 'pinterest' && pinterestAccounts.length > 1) || (channel.id === 'linkedin' && linkedinAccounts.length > 1)) && (
                       <span className="text-[10px] text-blue-600 font-semibold hover:underline">
-                        Switch active ({channel.id === 'facebook' ? fbPages.length : (channel.id === 'instagram' ? igAccounts.length : pinterestAccounts.length)} available)
+                        Switch active ({channel.id === 'facebook' ? fbPages.length : (channel.id === 'instagram' ? igAccounts.length : (channel.id === 'pinterest' ? pinterestAccounts.length : linkedinAccounts.length))} available)
                       </span>
                     )}
 
@@ -634,6 +676,93 @@ export function ConnectNewChannelModal({
               >
                 <Plus className="w-3.5 h-3.5" />
                 Connect / Authorize more accounts with Pinterest
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* LinkedIn Account Switcher Modal */}
+      {linkedinSwitcherOpen && (
+        <div 
+          className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs"
+          onClick={() => setLinkedinSwitcherOpen(false)}
+        >
+          <div 
+            className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl border border-gray-200 space-y-4 animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#0A66C2] text-white flex items-center justify-center">
+                  <FaLinkedinIn className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-gray-900">Switch LinkedIn Account</h3>
+                  <p className="text-[11px] text-gray-400">Select which connected account you want to use</p>
+                </div>
+              </div>
+              <button onClick={() => setLinkedinSwitcherOpen(false)} className="text-gray-400 hover:text-gray-600 p-1">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* List of LinkedIn Accounts */}
+            <div className="max-h-60 overflow-y-auto space-y-2 py-1">
+              {linkedinAccounts.map((account, idx) => {
+                const accountId = account.linkedin_id || account.id || '';
+                const name = account.name;
+                const isActive = idx === 0;
+                const isActivating = activatingId === accountId;
+
+                return (
+                  <button
+                    key={accountId || idx}
+                    onClick={() => handleActivateLinkedInAccount(accountId)}
+                    disabled={isActivating || isActive}
+                    className={`w-full flex items-center justify-between p-3 rounded-xl border text-left transition ${
+                      isActive 
+                        ? 'border-emerald-500 bg-emerald-50/50 text-emerald-950 font-bold'
+                        : 'border-gray-200 hover:border-blue-400 hover:bg-blue-50/30 text-gray-800'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-[#0A66C2] text-white flex items-center justify-center font-bold text-xs shrink-0">
+                        {name ? name.charAt(0).toUpperCase() : 'L'}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs truncate">{name}</p>
+                        {account.email && <p className="text-[10px] text-gray-400 truncate">{account.email}</p>}
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 ml-2">
+                      {isActivating ? (
+                        <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+                      ) : isActive ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full font-bold">
+                          <Check className="w-3 h-3" /> Active
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-blue-600 font-semibold hover:underline">Select</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Action buttons */}
+            <div className="border-t border-gray-100 pt-3 flex flex-col gap-2">
+              <button
+                onClick={() => {
+                  window.location.href = `${apiUrl}/api/auth/linkedin/connect`;
+                }}
+                className="w-full py-2 px-3 border border-gray-200 hover:bg-gray-50 text-gray-700 font-medium text-xs rounded-xl flex items-center justify-center gap-1.5 transition"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Connect / Authorize more accounts with LinkedIn
               </button>
             </div>
           </div>

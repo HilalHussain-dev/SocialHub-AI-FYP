@@ -26,6 +26,13 @@ import {
 	handlePinterestPost,
 } from "./routes/pinterest.js";
 import {
+	linkedinAuth,
+	linkedinCallback,
+	getLinkedInAccountsForUser,
+	activateLinkedInAccount,
+	handleLinkedInPost,
+} from "./routes/linkedin.js";
+import {
     handleRegister,
     handleLogin,
     handleMe,
@@ -218,7 +225,45 @@ export default {
 			return await handlePinterestPost(request, env);
 		}
 
+		// LinkedIn OAuth Start
+		if (
+			request.method === "GET" &&
+			(url.pathname === "/api/linkedin/auth" || url.pathname === "/api/auth/linkedin/connect" || url.pathname === "/api/auth/linkedin")
+		) {
+			return await linkedinAuth(request, env);
+		}
 
+		// LinkedIn OAuth callback from LinkedIn redirect
+		if (
+			request.method === "GET" &&
+			(url.pathname === "/api/linkedin/callback" || url.pathname === "/api/auth/linkedin/callback")
+		) {
+			return await linkedinCallback(request, env);
+		}
+
+		// Get connected LinkedIn accounts
+		if (
+			request.method === "GET" &&
+			(url.pathname === "/api/linkedin/accounts" || url.pathname === "/api/auth/linkedin/accounts")
+		) {
+			return await getLinkedInAccountsForUser(request, env);
+		}
+
+		// Activate / Switch LinkedIn Account
+		if (
+			request.method === "POST" &&
+			url.pathname === "/api/linkedin/accounts/activate"
+		) {
+			return await activateLinkedInAccount(request, env);
+		}
+
+		// Post to LinkedIn
+		if (
+			request.method === "POST" &&
+			(url.pathname === "/api/linkedin/post" || url.pathname === "/api/auth/linkedin/post")
+		) {
+			return await handleLinkedInPost(request, env);
+		}
 
 		// Get Post History from D1 database
 		if (

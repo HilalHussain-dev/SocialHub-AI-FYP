@@ -90,3 +90,19 @@ CREATE TABLE IF NOT EXISTS pinterest_accounts (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS linkedin_accounts (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    linkedin_id TEXT NOT NULL,
+    linkedin_urn TEXT NOT NULL,
+    name TEXT,
+    email TEXT,
+    profile_picture TEXT,
+    access_token TEXT NOT NULL,
+    token_expires_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, linkedin_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
