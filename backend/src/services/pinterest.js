@@ -1,4 +1,17 @@
-const PINTEREST_API_BASE = "https://api.pinterest.com/v5";
+const DEFAULT_PINTEREST_API_BASE = "https://api.pinterest.com/v5";
+
+/**
+ * Determine Pinterest API Base URL (Production vs Sandbox)
+ */
+export function getPinterestApiBase(env) {
+    if (env?.PINTEREST_API_BASE) {
+        return env.PINTEREST_API_BASE.replace(/\/+$/, "");
+    }
+    if (env?.PINTEREST_USE_SANDBOX === "true" || env?.PINTEREST_ENVIRONMENT === "sandbox") {
+        return "https://api-sandbox.pinterest.com/v5";
+    }
+    return DEFAULT_PINTEREST_API_BASE;
+}
 
 /**
  * Robustly convert an ArrayBuffer to a Base64 string in Cloudflare Workers / Node
@@ -18,15 +31,15 @@ export function arrayBufferToBase64(buffer) {
  * Exchange Pinterest authorization code for User Access Token & Refresh Token
  */
 export async function exchangePinterestCodeForUserToken(code, redirectUri, env) {
-    const appId = env.PINTEREST_APP_ID || "1630667";
-    const appSecret = env.PINTEREST_APP_SECRET || "cbf323c02d2cbc764fb5ab5330e4b605629eb143";
+    const appId = env?.PINTEREST_APP_ID;
+    const appSecret = env?.PINTEREST_APP_SECRET;
 
     if (!appId || !appSecret) {
         throw new Error("PINTEREST_APP_ID and PINTEREST_APP_SECRET must be configured in backend environment.");
     }
 
-
-    const tokenUrl = `${PINTEREST_API_BASE}/oauth/token`;
+    const apiBase = getPinterestApiBase(env);
+    const tokenUrl = `${apiBase}/oauth/token`;
     const basicAuth = btoa(`${appId}:${appSecret}`);
 
     const params = new URLSearchParams();
@@ -48,6 +61,14 @@ export async function exchangePinterestCodeForUserToken(code, redirectUri, env) 
 
     if (!response.ok || data.code || data.error) {
         const errorMsg = data.message || data.error_description || data.error || "Failed to exchange authorization code for Pinterest access token";
+        console.error(`Pinterest code exchange failed (HTTP ${response.status}): ${errorMsg}`);
+        const isSandbox = apiBase.includes("sandbox") || env?.PINTEREST_USE_SANDBOX === "true";
+        if ((response.status === 401 || response.status === 403) && isSandbox) {
+            throw new Error(
+                `Pinterest Sandbox Authentication Error (HTTP ${response.status}): Code exchange failed against api-sandbox.pinterest.com (${errorMsg}). ` +
+                "Please verify that your Pinterest App credentials match the Sandbox environment."
+            );
+        }
         throw new Error(errorMsg);
     }
 
@@ -57,12 +78,13 @@ export async function exchangePinterestCodeForUserToken(code, redirectUri, env) 
 /**
  * Get authenticated user's Pinterest profile details
  */
-export async function getPinterestUserProfile(accessToken) {
+export async function getPinterestUserProfile(accessToken, env) {
     if (!accessToken) {
         throw new Error("Access token is required.");
     }
 
-    const response = await fetch(`${PINTEREST_API_BASE}/user_account`, {
+    const apiBase = getPinterestApiBase(env);
+    const response = await fetch(`${apiBase}/user_account`, {
         headers: {
             "Authorization": `Bearer ${accessToken}`,
             "Content-Type": "application/json",
@@ -72,6 +94,14 @@ export async function getPinterestUserProfile(accessToken) {
     const data = await response.json();
 
     if (!response.ok || data.code) {
+        console.error(`Failed to retrieve Pinterest user profile (HTTP ${response.status}): ${data.message || "Unknown error"}`);
+        const isSandbox = apiBase.includes("sandbox") || env?.PINTEREST_USE_SANDBOX === "true";
+        if ((response.status === 401 || response.status === 403) && isSandbox) {
+            throw new Error(
+                `Pinterest Sandbox Authentication Error (HTTP ${response.status}): The access token was rejected by api-sandbox.pinterest.com (${data.message || 'Unauthorized'}). ` +
+                "Tokens generated in Production cannot be used in Sandbox (and vice-versa). Please reconnect your Pinterest account in the Sandbox environment or verify your sandbox credentials."
+            );
+        }
         throw new Error(data.message || "Failed to retrieve Pinterest user profile");
     }
 
@@ -79,38 +109,65 @@ export async function getPinterestUserProfile(accessToken) {
 }
 
 /**
- * Retrieve user's Pinterest boards
+ * Retrieve user's Pinterest boards (follows bookmark pagination until null)
  */
-export async function getPinterestBoards(accessToken) {
+export async function getPinterestBoards(accessToken, env) {
     if (!accessToken) {
         throw new Error("Access token is required.");
     }
 
-    const response = await fetch(`${PINTEREST_API_BASE}/boards?page_size=100`, {
-        headers: {
-            "Authorization": `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-        },
-    });
+    const apiBase = getPinterestApiBase(env);
+    const allBoards = [];
+    let bookmark = null;
 
-    const data = await response.json();
+    do {
+        const url = new URL(`${apiBase}/boards`);
+        url.searchParams.set("page_size", "100");
+        if (bookmark) {
+            url.searchParams.set("bookmark", bookmark);
+        }
 
-    if (!response.ok || data.code) {
-        throw new Error(data.message || "Failed to retrieve Pinterest boards");
-    }
+        const response = await fetch(url.toString(), {
+            headers: {
+                "Authorization": `Bearer ${accessToken}`,
+                "Content-Type": "application/json",
+            },
+        });
 
-    return data.items || [];
+        const data = await response.json();
+
+        if (!response.ok || data.code) {
+            console.error(`Failed to retrieve Pinterest boards (HTTP ${response.status}): ${data.message || "Unknown error"}`);
+            const isSandbox = apiBase.includes("sandbox") || env?.PINTEREST_USE_SANDBOX === "true";
+            if ((response.status === 401 || response.status === 403) && isSandbox) {
+                throw new Error(
+                    `Pinterest Sandbox Authentication Error (HTTP ${response.status}): The access token was rejected by api-sandbox.pinterest.com (${data.message || 'Unauthorized'}). ` +
+                    "Tokens generated in Production cannot be used in Sandbox (and vice-versa). Please reconnect your Pinterest account in the Sandbox environment or verify your sandbox credentials."
+                );
+            }
+            throw new Error(data.message || "Failed to retrieve Pinterest boards");
+        }
+
+        if (Array.isArray(data.items)) {
+            allBoards.push(...data.items);
+        }
+
+        bookmark = data.bookmark || null;
+    } while (bookmark);
+
+    return allBoards;
 }
 
 /**
  * Create a new Pinterest board if needed
  */
-export async function createPinterestBoard(accessToken, { name, description = "", privacy = "PUBLIC" }) {
+export async function createPinterestBoard(accessToken, { name, description = "", privacy = "PUBLIC" }, env) {
     if (!accessToken) {
         throw new Error("Access token is required.");
     }
 
-    const response = await fetch(`${PINTEREST_API_BASE}/boards`, {
+    const apiBase = getPinterestApiBase(env);
+    const response = await fetch(`${apiBase}/boards`, {
         method: "POST",
         headers: {
             "Authorization": `Bearer ${accessToken}`,
@@ -126,6 +183,14 @@ export async function createPinterestBoard(accessToken, { name, description = ""
     const data = await response.json();
 
     if (!response.ok || data.code) {
+        console.error(`Failed to create Pinterest board '${name}' (HTTP ${response.status}): ${data.message || "Unknown error"}`);
+        const isSandbox = apiBase.includes("sandbox") || env?.PINTEREST_USE_SANDBOX === "true";
+        if ((response.status === 401 || response.status === 403) && isSandbox) {
+            throw new Error(
+                `Pinterest Sandbox Authentication Error (HTTP ${response.status}): The access token was rejected by api-sandbox.pinterest.com (${data.message || 'Unauthorized'}). ` +
+                "Tokens generated in Production cannot be used in Sandbox (and vice-versa). Please reconnect your Pinterest account in the Sandbox environment or verify your sandbox credentials."
+            );
+        }
         throw new Error(data.message || "Failed to create Pinterest board");
     }
 
@@ -149,6 +214,7 @@ export async function publishPinterestPin({
     imageBase64 = null,
     imageContentType = "image/jpeg",
     accessToken,
+    env,
 }) {
     if (!accessToken) {
         throw new Error("Pinterest access token is required.");
@@ -157,6 +223,8 @@ export async function publishPinterestPin({
     if (!boardId) {
         throw new Error("Pinterest Board ID is required to publish a Pin.");
     }
+
+    const apiBase = getPinterestApiBase(env);
 
     let mediaSource = null;
 
@@ -206,7 +274,7 @@ export async function publishPinterestPin({
         payload.link = link.trim();
     }
 
-    const response = await fetch(`${PINTEREST_API_BASE}/pins`, {
+    const response = await fetch(`${apiBase}/pins`, {
         method: "POST",
         headers: {
             "Authorization": `Bearer ${accessToken}`,
@@ -218,8 +286,112 @@ export async function publishPinterestPin({
     const data = await response.json();
 
     if (!response.ok || data.code) {
-        throw new Error(data.message || data.details || "Failed to create Pin on Pinterest");
+        let errorDetails = "";
+        if (Array.isArray(data.details)) {
+            errorDetails = data.details
+                .map((d) => (typeof d === "object" ? d.message || JSON.stringify(d) : String(d)))
+                .join("; ");
+        } else if (typeof data.details === "string") {
+            errorDetails = data.details;
+        }
+
+        const rawMsg = data.message || errorDetails || `Failed to create Pin on Pinterest (HTTP ${response.status})`;
+        console.error(`Failed to create Pinterest pin (HTTP ${response.status}): ${rawMsg}`);
+
+        const fullMsg = errorDetails && data.message && !data.message.includes(errorDetails)
+            ? `${data.message} - ${errorDetails}`
+            : rawMsg;
+
+        const isSandbox = apiBase.includes("sandbox") || env?.PINTEREST_USE_SANDBOX === "true";
+
+        if ((response.status === 401 || response.status === 403) && isSandbox) {
+            const authErr = new Error(
+                `Pinterest Sandbox Authentication Error (HTTP ${response.status}): The access token was rejected by api-sandbox.pinterest.com (${rawMsg}). ` +
+                "Tokens generated in Production cannot be used in Sandbox (and vice-versa). Please reconnect your Pinterest account in the Sandbox environment or verify your sandbox credentials."
+            );
+            authErr.status = response.status;
+            throw authErr;
+        }
+
+        if (!isSandbox && (/trial access/i.test(fullMsg) || (fullMsg.includes("api-sandbox.pinterest.com") && /trial/i.test(fullMsg)))) {
+            const trialErr = new Error(
+                "Pinterest Trial Access Restriction: Your app has Trial access, which Pinterest restricts from publishing to production (api.pinterest.com). " +
+                "To fix: 1) Click 'Upgrade access' in your Pinterest Developer Dashboard to unlock Standard production access, OR " +
+                "2) Add PINTEREST_USE_SANDBOX=true in backend/.dev.vars to test in the Sandbox environment."
+            );
+            trialErr.status = response.status;
+            throw trialErr;
+        }
+
+        const err = new Error(fullMsg);
+        err.status = response.status;
+        throw err;
     }
 
     return data;
+}
+
+/**
+ * Find or create a Pinterest board by name.
+ * Reuses stored board ID if provided, follows bookmark pagination,
+ * and creates a suffixed board once instead of generating random boards on every duplicate.
+ */
+export async function getOrCreateBoard(accessToken, name, env, storedBoardId = null) {
+    if (storedBoardId) {
+        return { id: storedBoardId, name };
+    }
+
+    const targetName = (name || "").trim().toLowerCase();
+
+    const findMatch = async () => {
+        const boards = await getPinterestBoards(accessToken, env);
+        return boards.find(
+            (b) => (b.name || "").trim().toLowerCase() === targetName
+        );
+    };
+
+    const existing = await findMatch();
+    if (existing) {
+        return existing;
+    }
+
+    try {
+        return await createPinterestBoard(accessToken, { name: name.trim() }, env);
+    } catch (e) {
+        if (/already have a board/i.test(e.message || "")) {
+            const again = await findMatch();
+            if (again) {
+                return again;
+            }
+            // Create a suffixed default board once instead of random suffixes
+            const suffixedName = `${name.trim()} (Default)`;
+            try {
+                return await createPinterestBoard(
+                    accessToken,
+                    { name: suffixedName },
+                    env
+                );
+            } catch (suffErr) {
+                if (/already have a board/i.test(suffErr.message || "")) {
+                    const allBoards = await getPinterestBoards(accessToken, env);
+                    const suffMatch = allBoards.find(
+                        (b) => (b.name || "").trim().toLowerCase() === suffixedName.toLowerCase()
+                    );
+                    if (suffMatch) {
+                        return suffMatch;
+                    }
+                    if (allBoards.length > 0) {
+                        return allBoards[0];
+                    }
+                    return await createPinterestBoard(
+                        accessToken,
+                        { name: `${name.trim()} 1` },
+                        env
+                    );
+                }
+                throw suffErr;
+            }
+        }
+        throw e;
+    }
 }

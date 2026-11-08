@@ -21,6 +21,7 @@ import {
 	pinterestCallback,
 	getPinterestAccountsForUser,
 	getPinterestBoardsForUser,
+	createPinterestBoardForUser,
 	activatePinterestAccount,
 	handlePinterestPost,
 } from "./routes/pinterest.js";
@@ -191,6 +192,14 @@ export default {
 			(url.pathname === "/api/pinterest/boards" || url.pathname === "/api/auth/pinterest/boards")
 		) {
 			return await getPinterestBoardsForUser(request, env);
+		}
+
+		// Create Pinterest board
+		if (
+			request.method === "POST" &&
+			(url.pathname === "/api/pinterest/boards" || url.pathname === "/api/auth/pinterest/boards")
+		) {
+			return await createPinterestBoardForUser(request, env);
 		}
 
 		// Activate / Switch Pinterest Account

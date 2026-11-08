@@ -83,6 +83,7 @@ CREATE TABLE IF NOT EXISTS pinterest_accounts (
     access_token TEXT NOT NULL,
     refresh_token TEXT,
     token_expires_at TIMESTAMP,
+    default_board_id TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(user_id, pinterest_user_id),

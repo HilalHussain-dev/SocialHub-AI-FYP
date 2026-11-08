@@ -98,6 +98,9 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
   const [selectedPinBoardId, setSelectedPinBoardId] = useState<string>('');
   const [pinTitle, setPinTitle] = useState('');
   const [pinLink, setPinLink] = useState('');
+  const [isCreatingBoard, setIsCreatingBoard] = useState(false);
+  const [newBoardName, setNewBoardName] = useState('');
+  const [creatingBoardLoading, setCreatingBoardLoading] = useState(false);
   const [postText, setPostText] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -195,6 +198,37 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
       reader.readAsDataURL(file);
     } else {
       setImagePreview(null);
+    }
+  };
+
+  // Create a new Pinterest board
+  const handleCreatePinterestBoard = async () => {
+    if (!newBoardName.trim()) return;
+    setCreatingBoardLoading(true);
+    try {
+      const targetPinId = selectedPinAccountId || pinterestAccounts[0]?.pinterest_user_id || pinterestAccounts[0]?.id;
+      const res = await fetch(`${apiUrl}/api/pinterest/boards`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          accountId: targetPinId,
+          name: newBoardName.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to create board');
+      }
+      const created = data.board;
+      setPinterestBoards((prev) => [created, ...prev]);
+      setSelectedPinBoardId(created.id);
+      setNewBoardName('');
+      setIsCreatingBoard(false);
+    } catch (err: any) {
+      alert(err.message || 'Error creating board');
+    } finally {
+      setCreatingBoardLoading(false);
     }
   };
 
@@ -335,6 +369,21 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
           throw new Error(pinData.error || 'Failed to publish to Pinterest.');
         }
         messages.push(`Pinterest: Pin published successfully! (ID: ${pinData.postId})`);
+
+        // If boards were empty, refresh boards list
+        if (pinterestBoards.length === 0 && targetPinId) {
+          fetch(`${apiUrl}/api/pinterest/boards?accountId=${encodeURIComponent(targetPinId)}&_t=${Date.now()}`, {
+            credentials: 'include',
+          })
+            .then((res) => res.json())
+            .then((bData) => {
+              if (bData.boards && bData.boards.length > 0) {
+                setPinterestBoards(bData.boards);
+                setSelectedPinBoardId(bData.boards[0].id);
+              }
+            })
+            .catch(() => {});
+        }
       }
 
       setPublishSuccess(messages.join(' • '));
@@ -910,9 +959,50 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
 
                   {/* Board Selection */}
                   <div>
-                    <label className="block text-[11px] font-semibold text-gray-700 mb-1">
-                      Choose Board:
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-semibold text-gray-700">
+                        Choose Board:
+                      </label>
+                      {pinterestAccounts.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setIsCreatingBoard((prev) => !prev)}
+                          className="text-[11px] font-semibold text-red-600 hover:text-red-700 hover:underline cursor-pointer"
+                        >
+                          {isCreatingBoard ? 'Cancel' : '+ New Board'}
+                        </button>
+                      )}
+                    </div>
+
+                    {isCreatingBoard && (
+                      <div className="mb-2 p-2.5 bg-white border border-red-200 rounded-xl space-y-2">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={newBoardName}
+                            onChange={(e) => setNewBoardName(e.target.value)}
+                            placeholder="New Board Name (e.g. My Pins)"
+                            maxLength={50}
+                            className="flex-1 px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-red-600"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleCreatePinterestBoard();
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            disabled={creatingBoardLoading || !newBoardName.trim()}
+                            onClick={handleCreatePinterestBoard}
+                            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-xs font-medium rounded-lg cursor-pointer"
+                          >
+                            {creatingBoardLoading ? 'Creating...' : 'Create'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     {pinterestBoards.length > 0 ? (
                       <select
                         value={selectedPinBoardId || (pinterestBoards[0]?.id || '')}
@@ -927,7 +1017,9 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
                       </select>
                     ) : (
                       <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs">
-                        {pinterestAccounts.length === 0 ? 'Please connect a Pinterest account to select boards.' : 'No boards found on this account. A default board will be used or created.'}
+                        {pinterestAccounts.length === 0
+                          ? 'Please connect a Pinterest account to select boards.'
+                          : "No boards found yet. A default 'SocialHub Pins' board will be created automatically when you click Share Now, or create one using '+ New Board' above."}
                       </div>
                     )}
                   </div>

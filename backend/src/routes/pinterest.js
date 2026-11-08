@@ -2,7 +2,10 @@ import {
     exchangePinterestCodeForUserToken,
     getPinterestUserProfile,
     getPinterestBoards,
+    createPinterestBoard,
     publishPinterestPin,
+    getOrCreateBoard,
+    arrayBufferToBase64,
 } from "../services/pinterest.js";
 import { getSessionCookie } from "../utils/auth.js";
 import { withCors } from "../utils/cors.js";
@@ -32,12 +35,18 @@ export async function ensurePinterestTable(db) {
                 access_token TEXT NOT NULL,
                 refresh_token TEXT,
                 token_expires_at TIMESTAMP,
+                default_board_id TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(user_id, pinterest_user_id),
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             )
         `).run();
+        try {
+            await db.prepare("ALTER TABLE pinterest_accounts ADD COLUMN default_board_id TEXT").run();
+        } catch {
+            // Column already exists
+        }
     } catch (e) {
         // Table might already exist or running in a mock context
         console.warn("ensurePinterestTable note:", e.message);
@@ -149,7 +158,7 @@ export async function pinterestAuth(request, env) {
         const nonce = crypto.randomUUID();
         const statePayload = `${nonce}|${userId}|${frontendOrigin}|${encodeURIComponent(redirectUri)}`;
 
-        const appId = env.PINTEREST_APP_ID || "1630667";
+        const appId = env?.PINTEREST_APP_ID;
 
         if (!appId) {
             return withCors(new Response(
@@ -261,7 +270,7 @@ export async function pinterestCallback(request, env) {
         const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
         // Retrieve user profile from Pinterest
-        const profile = await getPinterestUserProfile(accessToken);
+        const profile = await getPinterestUserProfile(accessToken, env);
         const pinterestUserId = profile.id || profile.username || crypto.randomUUID();
         const username = profile.username || "pinterest_user";
         const businessName = profile.business_name || profile.username || "Pinterest User";
@@ -300,7 +309,7 @@ export async function pinterestCallback(request, env) {
         // Also fetch boards in advance
         let boards = [];
         try {
-            boards = await getPinterestBoards(accessToken);
+            boards = await getPinterestBoards(accessToken, env);
         } catch (bErr) {
             console.warn("Could not pre-fetch boards on callback:", bErr.message);
         }
@@ -365,8 +374,28 @@ export async function getPinterestAccountsForUser(request, env) {
             .bind(userId)
             .all();
 
+        let accounts = results || [];
+
+        // Fallback to direct token in .dev.vars if no accounts linked in DB
+        if (accounts.length === 0 && env.PINTEREST_ACCESS_TOKEN) {
+            try {
+                const profile = await getPinterestUserProfile(env.PINTEREST_ACCESS_TOKEN, env);
+                accounts = [{
+                    id: "direct_pinterest_account",
+                    pinterest_user_id: profile.id || "direct_pinterest",
+                    username: profile.username || "pinterest_user",
+                    business_name: profile.business_name || profile.username || "Pinterest User",
+                    profile_image: profile.profile_image || null,
+                    updated_at: new Date().toISOString(),
+                    created_at: new Date().toISOString(),
+                }];
+            } catch (pErr) {
+                console.warn("Could not load profile from PINTEREST_ACCESS_TOKEN:", pErr.message);
+            }
+        }
+
         return withCors(new Response(
-            JSON.stringify({ success: true, accounts: results || [] }),
+            JSON.stringify({ success: true, accounts }),
             { status: 200, headers: { "Content-Type": "application/json" } }
         ), request);
     } catch (err) {
@@ -408,14 +437,16 @@ export async function getPinterestBoardsForUser(request, env) {
                 .first();
         }
 
-        if (!account || !account.access_token) {
+        const accessToken = account?.access_token || env.PINTEREST_ACCESS_TOKEN;
+
+        if (!accessToken) {
             return withCors(new Response(
                 JSON.stringify({ success: false, error: "No connected Pinterest account found. Please connect Pinterest first." }),
                 { status: 404, headers: { "Content-Type": "application/json" } }
             ), request);
         }
 
-        const boards = await getPinterestBoards(account.access_token);
+        const boards = await getPinterestBoards(accessToken, env);
 
         return withCors(new Response(
             JSON.stringify({ success: true, boards: boards || [] }),
@@ -424,6 +455,72 @@ export async function getPinterestBoardsForUser(request, env) {
     } catch (err) {
         return withCors(new Response(
             JSON.stringify({ success: false, error: err.message || "Failed to fetch Pinterest boards" }),
+            { status: 500, headers: { "Content-Type": "application/json" } }
+        ), request);
+    }
+}
+
+/**
+ * POST /api/pinterest/boards (and POST /api/auth/pinterest/boards)
+ * Creates a new Pinterest board for the active user account
+ */
+export async function createPinterestBoardForUser(request, env) {
+    await ensurePinterestTable(env.socialhub_db);
+    const userId = await resolveUserId(request, env);
+    if (!userId) {
+        return withCors(new Response(
+            JSON.stringify({ success: false, error: "Unauthorized" }),
+            { status: 401, headers: { "Content-Type": "application/json" } }
+        ), request);
+    }
+
+    try {
+        const body = await request.json().catch(() => ({}));
+        const name = (body.name || "").trim();
+        const description = (body.description || "").trim();
+        const privacy = (body.privacy || "PUBLIC").toUpperCase();
+        const accountId = body.accountId || body.pinterest_user_id;
+
+        if (!name) {
+            return withCors(new Response(
+                JSON.stringify({ success: false, error: "Board name is required." }),
+                { status: 400, headers: { "Content-Type": "application/json" } }
+            ), request);
+        }
+
+        let account = null;
+        if (accountId) {
+            account = await env.socialhub_db
+                .prepare("SELECT access_token FROM pinterest_accounts WHERE user_id = ? AND (pinterest_user_id = ? OR id = ?) LIMIT 1")
+                .bind(userId, accountId, accountId)
+                .first();
+        } else {
+            account = await env.socialhub_db
+                .prepare("SELECT access_token FROM pinterest_accounts WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1")
+                .bind(userId)
+                .first();
+        }
+
+        if (!account || !account.access_token) {
+            return withCors(new Response(
+                JSON.stringify({ success: false, error: "No connected Pinterest account found." }),
+                { status: 404, headers: { "Content-Type": "application/json" } }
+            ), request);
+        }
+
+        const newBoard = await createPinterestBoard(account.access_token, {
+            name,
+            description,
+            privacy,
+        }, env);
+
+        return withCors(new Response(
+            JSON.stringify({ success: true, board: newBoard }),
+            { status: 201, headers: { "Content-Type": "application/json" } }
+        ), request);
+    } catch (err) {
+        return withCors(new Response(
+            JSON.stringify({ success: false, error: err.message || "Failed to create board" }),
             { status: 500, headers: { "Content-Type": "application/json" } }
         ), request);
     }
@@ -500,14 +597,14 @@ export async function handlePinterestPost(request, env) {
     if (contentType.includes("multipart/form-data")) {
         try {
             const formData = await request.formData();
-            boardId = formData.get("boardId");
-            accountId = formData.get("accountId");
+            boardId = formData.get("boardId") || formData.get("board_id");
+            accountId = formData.get("accountId") || formData.get("account_id");
             title = formData.get("title") || "";
             description = formData.get("description") || formData.get("message") || formData.get("caption") || "";
             link = formData.get("link") || "";
             imageFile = formData.get("image") || formData.get("file");
-            imageUrl = formData.get("imageUrl");
-            imageBase64 = formData.get("imageBase64");
+            imageUrl = formData.get("imageUrl") || formData.get("image_url");
+            imageBase64 = formData.get("imageBase64") || formData.get("image_base64");
         } catch (e) {
             return withCors(new Response(
                 JSON.stringify({ success: false, error: "Failed to parse form data: " + e.message }),
@@ -517,19 +614,24 @@ export async function handlePinterestPost(request, env) {
     } else {
         try {
             const body = await request.json();
-            boardId = body.boardId;
-            accountId = body.accountId;
+            boardId = body.boardId || body.board_id;
+            accountId = body.accountId || body.account_id;
             title = body.title || "";
             description = body.description || body.message || body.caption || "";
             link = body.link || "";
-            imageUrl = body.imageUrl;
-            imageBase64 = body.imageBase64;
+            imageUrl = body.imageUrl || body.image_url;
+            imageBase64 = body.imageBase64 || body.image_base64;
         } catch {
             return withCors(new Response(
                 JSON.stringify({ success: false, error: "Invalid JSON body." }),
                 { status: 400, headers: { "Content-Type": "application/json" } }
             ), request);
         }
+    }
+
+    if (imageUrl && imageUrl.startsWith("data:")) {
+        imageBase64 = imageUrl;
+        imageUrl = null;
     }
 
     if (!imageFile && !imageUrl && !imageBase64) {
@@ -560,7 +662,9 @@ export async function handlePinterestPost(request, env) {
             .first();
     }
 
-    if (!account || !account.access_token) {
+    const accessToken = account?.access_token || env.PINTEREST_ACCESS_TOKEN;
+
+    if (!accessToken) {
         return withCors(new Response(
             JSON.stringify({ success: false, error: "Please connect a Pinterest account before publishing." }),
             { status: 404, headers: { "Content-Type": "application/json" } }
@@ -568,24 +672,37 @@ export async function handlePinterestPost(request, env) {
     }
 
     if (!userId) {
-        userId = account.user_id;
+        userId = account?.user_id || "direct_user";
     }
 
-    // If boardId wasn't specified, automatically find or use first user board
-    if (!boardId) {
+    // Determine board ID:
+    // 1. Use the board ID sent by the client (selected in UI dropdown)
+    // 2. Fallback to cached default_board_id in D1 for this account
+    // 3. If neither exists, call getOrCreateBoard and cache resolved ID in D1
+    let usedDefaultBoard = false;
+    if (boardId && boardId !== "undefined" && boardId !== "null" && (typeof boardId !== "string" || boardId.trim())) {
+        boardId = typeof boardId === "string" ? boardId.trim() : boardId;
+    } else if (account?.default_board_id) {
+        boardId = account.default_board_id;
+        usedDefaultBoard = true;
+    } else {
         try {
-            const boards = await getPinterestBoards(account.access_token);
-            if (boards && boards.length > 0) {
-                boardId = boards[0].id;
-            } else {
-                return withCors(new Response(
-                    JSON.stringify({ success: false, error: "No Pinterest boards found. Please create a board on Pinterest first." }),
-                    { status: 400, headers: { "Content-Type": "application/json" } }
-                ), request);
+            const defaultBoard = await getOrCreateBoard(accessToken, "SocialHub Pins", env);
+            if (!defaultBoard || !defaultBoard.id) {
+                throw new Error("Could not find or create default board 'SocialHub Pins'");
+            }
+            boardId = defaultBoard.id;
+            usedDefaultBoard = true;
+            if (account?.id && env.socialhub_db) {
+                await env.socialhub_db
+                    .prepare("UPDATE pinterest_accounts SET default_board_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                    .bind(boardId, account.id)
+                    .run();
+                account.default_board_id = boardId;
             }
         } catch (bErr) {
             return withCors(new Response(
-                JSON.stringify({ success: false, error: "Could not retrieve boards: " + bErr.message }),
+                JSON.stringify({ success: false, error: "Could not find or create a Pinterest board: " + (bErr.message || bErr) }),
                 { status: 500, headers: { "Content-Type": "application/json" } }
             ), request);
         }
@@ -594,46 +711,89 @@ export async function handlePinterestPost(request, env) {
     try {
         let r2Key = null;
         let mediaUrl = null;
+        let finalImageBase64 = imageBase64;
+        let finalImageContentType = "image/jpeg";
 
-        // 1. SAVE TO R2 STORAGE (socialhub-media) if imageFile present
-        if (imageFile && env.socialhub_media) {
+        // If an imageFile is provided, convert to base64 and save to R2
+        if (imageFile && typeof imageFile.arrayBuffer === "function") {
             try {
                 const arrayBuffer = await imageFile.arrayBuffer();
-                const originalName = imageFile.name ? imageFile.name.replace(/[^a-zA-Z0-9._-]/g, '_') : 'pin.jpg';
-                const fileId = crypto.randomUUID();
-                r2Key = `posts/${userId}/${fileId}-${originalName}`;
+                finalImageBase64 = arrayBufferToBase64(arrayBuffer);
+                const rawType = imageFile.type || "image/jpeg";
+                finalImageContentType = rawType.includes("png") ? "image/png" : "image/jpeg";
 
-                await env.socialhub_media.put(r2Key, arrayBuffer, {
-                    httpMetadata: {
-                        contentType: imageFile.type || 'image/jpeg',
-                    },
-                    customMetadata: {
-                        userId: userId,
-                        channel: 'pinterest',
-                        boardId: boardId,
-                        originalName: originalName,
-                        uploadedAt: new Date().toISOString(),
-                    },
-                });
+                // 1. SAVE TO R2 STORAGE (socialhub-media) for local storage
+                if (env.socialhub_media) {
+                    const originalName = imageFile.name ? imageFile.name.replace(/[^a-zA-Z0-9._-]/g, '_') : 'pin.jpg';
+                    const fileId = crypto.randomUUID();
+                    r2Key = `posts/${userId}/${fileId}-${originalName}`;
 
-                const reqUrl = new URL(request.url);
-                mediaUrl = `${reqUrl.protocol}//${reqUrl.host}/api/media/${encodeURIComponent(r2Key)}`;
+                    await env.socialhub_media.put(r2Key, arrayBuffer, {
+                        httpMetadata: {
+                            contentType: finalImageContentType,
+                        },
+                        customMetadata: {
+                            userId: userId,
+                            channel: 'pinterest',
+                            boardId: boardId,
+                            originalName: originalName,
+                            uploadedAt: new Date().toISOString(),
+                        },
+                    });
+
+                    const reqUrl = new URL(request.url);
+                    mediaUrl = `${reqUrl.protocol}//${reqUrl.host}/api/media/${encodeURIComponent(r2Key)}`;
+                }
             } catch (r2Err) {
                 console.error("Warning: Error writing Pinterest image to R2:", r2Err);
             }
         }
 
-        // 2. PUBLISH PIN TO PINTEREST API v5
-        const pinResult = await publishPinterestPin({
+        // 2. PUBLISH PIN TO PINTEREST API v5 (with retry if cached board is not found)
+        let pinResult;
+        const publishPayload = {
             boardId,
             title: title || (description ? description.slice(0, 50) : "SocialHub Pin"),
             description: description || title || "",
             link,
-            imageFile,
+            imageFile: finalImageBase64 ? null : imageFile,
             imageUrl,
-            imageBase64,
-            accessToken: account.access_token,
-        });
+            imageBase64: finalImageBase64,
+            imageContentType: finalImageContentType,
+            accessToken,
+            env,
+        };
+
+        try {
+            pinResult = await publishPinterestPin(publishPayload);
+        } catch (pinErr) {
+            const isBoardNotFound = /board.*(not found|does not exist|invalid)/i.test(pinErr.message || "") || (pinErr.status === 404 && /board/i.test(pinErr.message || ""));
+            if (usedDefaultBoard && isBoardNotFound) {
+                // Clear cached board in D1 and recreate
+                if (account?.id && env.socialhub_db) {
+                    await env.socialhub_db
+                        .prepare("UPDATE pinterest_accounts SET default_board_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                        .bind(account.id)
+                        .run();
+                    account.default_board_id = null;
+                }
+                const newBoard = await getOrCreateBoard(accessToken, "SocialHub Pins", env);
+                boardId = newBoard.id;
+                if (account?.id && env.socialhub_db) {
+                    await env.socialhub_db
+                        .prepare("UPDATE pinterest_accounts SET default_board_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                        .bind(boardId, account.id)
+                        .run();
+                    account.default_board_id = boardId;
+                }
+                publishPayload.boardId = boardId;
+                pinResult = await publishPinterestPin(publishPayload);
+            } else {
+                throw pinErr;
+            }
+        }
+
+        const isSandbox = env?.PINTEREST_USE_SANDBOX === "true" || env?.PINTEREST_ENVIRONMENT === "sandbox" || getPinterestApiBase(env).includes("sandbox");
 
         // 3. RECORD IN POSTS TABLE
         const recordId = crypto.randomUUID();
@@ -650,7 +810,7 @@ export async function handlePinterestPost(request, env) {
                 recordId,
                 userId,
                 boardId,
-                account.business_name || account.username || "Pinterest",
+                account.business_name || account.username || (isSandbox ? "Pinterest (Sandbox)" : "Pinterest"),
                 pinResult.id,
                 combinedMessage,
                 r2Key,
@@ -662,6 +822,9 @@ export async function handlePinterestPost(request, env) {
             JSON.stringify({
                 success: true,
                 postId: pinResult.id,
+                pinId: pinResult.id,
+                isSandbox,
+                sandbox: isSandbox,
                 channel: "pinterest",
                 boardId,
                 pin: pinResult,
