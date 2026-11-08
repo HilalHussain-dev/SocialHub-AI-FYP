@@ -17,6 +17,13 @@
 	},
 	"upload_source_maps": true,
 	/**
+	 * Non-secret environment variables
+	 */
+	"vars": {
+		"PINTEREST_USE_SANDBOX": "true",
+		"PINTEREST_REDIRECT_URI": "https://socialhub-backend.hilalhussain1049.workers.dev/api/pinterest/callback"
+	},
+	/**
 	 * Cloudflare D1 SQL Database
 	 */
 	"d1_databases": [
