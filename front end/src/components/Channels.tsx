@@ -6,15 +6,15 @@ import {
   FaXTwitter,
   FaGoogle,
   FaInstagram,
-  FaMastodon,
   FaTiktok,
   FaFacebookF
 } from 'react-icons/fa6';
 
-import { SiBluesky, SiThreads } from 'react-icons/si';
+import { SiThreads } from 'react-icons/si';
 
 import { connectFacebook } from '../lib/facebook';
 import { connectInstagram } from '../lib/instagram';
+import { connectTikTok } from '../lib/tiktok';
 
 const CHANNELS = [
   {
@@ -31,11 +31,6 @@ const CHANNELS = [
     name: 'Pinterest',
     color: '#E60023',
     icon: <FaPinterestP className="w-5 h-5 text-white" />
-  },
-  {
-    name: 'Bluesky',
-    color: '#0085FF',
-    icon: <SiBluesky className="w-4 h-4 text-white" />
   },
   {
     name: 'YouTube',
@@ -58,14 +53,9 @@ const CHANNELS = [
     icon: <FaInstagram className="w-5 h-5 text-white" />
   },
   {
-    name: 'Mastodon',
-    color: '#6364FF',
-    icon: <FaMastodon className="w-4 h-4 text-white" />
-  },
-  {
     name: 'TikTok',
     color: '#010101',
-    icon: <FaTiktok className="w-4 h-4 text-white" />
+    icon: <FaTiktok className="w-5 h-5 text-white" />
   },
   {
     name: 'Facebook',
@@ -88,7 +78,7 @@ export function Channels({ onSelectChannel }: ChannelsProps) {
         </h2>
 
         <p className="text-gray-500 max-w-xl mx-auto">
-          11 platforms and counting — we add new channels as they grow.
+          9 platforms and counting — we add new channels as they grow.
         </p>
       </div>
 
@@ -100,11 +90,18 @@ export function Channels({ onSelectChannel }: ChannelsProps) {
 
             const isFacebook = ch.name === 'Facebook';
             const isInstagram = ch.name === 'Instagram';
-            const isInteractive = isFacebook || isInstagram;
+            const isTikTok = ch.name === 'TikTok';
+            const isInteractive = isFacebook || isInstagram || isTikTok;
 
             const handleClick = () => {
               if (onSelectChannel) {
                 onSelectChannel(ch.name);
+              } else if (isTikTok) {
+                connectTikTok();
+              } else if (isFacebook) {
+                connectFacebook();
+              } else if (isInstagram) {
+                connectInstagram();
               }
             };
 

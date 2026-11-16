@@ -18,7 +18,7 @@ const FOOTER_COLS = [
   },
   {
     heading: 'Channels',
-    links: ['Instagram', 'TikTok', 'Facebook', 'LinkedIn', 'X / Twitter', 'Pinterest', 'Threads', 'Bluesky', 'YouTube', 'Mastodon'],
+    links: ['Instagram', 'TikTok', 'Facebook', 'LinkedIn', 'X / Twitter', 'Pinterest', 'Threads', 'YouTube'],
   },
 
   {

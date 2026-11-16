@@ -33,6 +33,17 @@ import {
 	handleLinkedInPost,
 } from "./routes/linkedin.js";
 import {
+	tiktokAuth,
+	tiktokCallback,
+	getTikTokAccountsForUser,
+	activateTikTokAccount,
+	disconnectTikTokAccount,
+	refreshTikTokTokenHandler,
+	handleTikTokPost,
+	handleTikTokStatus,
+	handleTikTokRefreshStatus,
+} from "./routes/tiktok.js";
+import {
     handleRegister,
     handleLogin,
     handleMe,
@@ -263,6 +274,78 @@ export default {
 			(url.pathname === "/api/linkedin/post" || url.pathname === "/api/auth/linkedin/post")
 		) {
 			return await handleLinkedInPost(request, env);
+		}
+
+		// TikTok OAuth Start
+		if (
+			request.method === "GET" &&
+			(url.pathname === "/api/tiktok/auth" || url.pathname === "/api/auth/tiktok/connect" || url.pathname === "/api/auth/tiktok")
+		) {
+			return await tiktokAuth(request, env);
+		}
+
+		// TikTok OAuth callback from TikTok redirect
+		if (
+			request.method === "GET" &&
+			(url.pathname === "/api/tiktok/callback" || url.pathname === "/api/auth/tiktok/callback")
+		) {
+			return await tiktokCallback(request, env);
+		}
+
+		// Get connected TikTok accounts
+		if (
+			request.method === "GET" &&
+			(url.pathname === "/api/tiktok/accounts" || url.pathname === "/api/auth/tiktok/accounts")
+		) {
+			return await getTikTokAccountsForUser(request, env);
+		}
+
+		// Activate / Switch TikTok Account
+		if (
+			request.method === "POST" &&
+			url.pathname === "/api/tiktok/accounts/activate"
+		) {
+			return await activateTikTokAccount(request, env);
+		}
+
+		// Disconnect TikTok Account
+		if (
+			(request.method === "POST" && (url.pathname === "/api/tiktok/disconnect" || url.pathname === "/api/auth/tiktok/disconnect")) ||
+			(request.method === "DELETE" && (url.pathname === "/api/tiktok/accounts" || url.pathname.startsWith("/api/tiktok/accounts/")))
+		) {
+			return await disconnectTikTokAccount(request, env);
+		}
+
+		// Refresh TikTok Token
+		if (
+			request.method === "POST" &&
+			(url.pathname === "/api/tiktok/token/refresh" || url.pathname === "/api/auth/tiktok/token/refresh")
+		) {
+			return await refreshTikTokTokenHandler(request, env);
+		}
+
+		// Post / Publish video to TikTok
+		if (
+			request.method === "POST" &&
+			(url.pathname === "/api/tiktok/post" || url.pathname === "/api/auth/tiktok/post")
+		) {
+			return await handleTikTokPost(request, env, ctx);
+		}
+
+		// Check TikTok Video Publish Status
+		if (
+			request.method === "GET" &&
+			(url.pathname === "/api/tiktok/status" || url.pathname === "/api/auth/tiktok/status")
+		) {
+			return await handleTikTokStatus(request, env);
+		}
+
+		// Refresh TikTok Video Publish Status for Pending Posts
+		if (
+			request.method === "POST" &&
+			(url.pathname === "/api/tiktok/refresh-status" || url.pathname === "/api/auth/tiktok/refresh-status")
+		) {
+			return await handleTikTokRefreshStatus(request, env);
 		}
 
 		// Get Post History from D1 database

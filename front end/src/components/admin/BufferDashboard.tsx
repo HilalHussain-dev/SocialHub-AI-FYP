@@ -24,8 +24,8 @@ import {
   Send,
   Info
 } from 'lucide-react';
-import { FaFacebook, FaInstagram, FaLinkedinIn, FaThreads, FaPinterestP } from 'react-icons/fa6';
-import { ConnectNewChannelModal, type PinterestAccount } from './ConnectNewChannelModal';
+import { FaFacebook, FaInstagram, FaLinkedinIn, FaThreads, FaPinterestP, FaTiktok } from 'react-icons/fa6';
+import { ConnectNewChannelModal, type PinterestAccount, type TikTokAccount } from './ConnectNewChannelModal';
 
 interface BufferDashboardProps {
   user: { id: string; email: string; name?: string };
@@ -87,6 +87,7 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
   const [pinterestAccounts, setPinterestAccounts] = useState<PinterestAccount[]>([]);
   const [pinterestBoards, setPinterestBoards] = useState<PinterestBoard[]>([]);
   const [linkedinAccounts, setLinkedinAccounts] = useState<LinkedInAccount[]>([]);
+  const [tiktokAccounts, setTiktokAccounts] = useState<TikTokAccount[]>([]);
   const [loadingChannels, setLoadingChannels] = useState(false);
 
   // Post history
@@ -103,11 +104,18 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
   const [postToIg, setPostToIg] = useState(false);
   const [postToPinterest, setPostToPinterest] = useState(false);
   const [postToLinkedIn, setPostToLinkedIn] = useState(false);
+  const [postToTikTok, setPostToTikTok] = useState(false);
   const [selectedFbPageId, setSelectedFbPageId] = useState<string>('');
   const [selectedIgAccountId, setSelectedIgAccountId] = useState<string>('');
   const [selectedPinAccountId, setSelectedPinAccountId] = useState<string>('');
   const [selectedPinBoardId, setSelectedPinBoardId] = useState<string>('');
   const [selectedLinkedInAccountId, setSelectedLinkedInAccountId] = useState<string>('');
+  const [selectedTikTokAccountId, setSelectedTikTokAccountId] = useState<string>('');
+  const [tiktokPrivacyLevel, setTiktokPrivacyLevel] = useState<'PUBLIC_TO_EVERYONE' | 'MUTUAL_FOLLOW_FRIENDS' | 'SELF_ONLY'>('PUBLIC_TO_EVERYONE');
+  const [tiktokIsDraft, setTiktokIsDraft] = useState(false);
+  const [tiktokAllowComment, setTiktokAllowComment] = useState(true);
+  const [tiktokAllowDuet, setTiktokAllowDuet] = useState(true);
+  const [tiktokAllowStitch, setTiktokAllowStitch] = useState(true);
   const [pinTitle, setPinTitle] = useState('');
   const [pinLink, setPinLink] = useState('');
   const [isCreatingBoard, setIsCreatingBoard] = useState(false);
@@ -125,11 +133,12 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
   const loadChannels = async () => {
     setLoadingChannels(true);
     try {
-      const [fbRes, igRes, pinRes, liRes] = await Promise.all([
+      const [fbRes, igRes, pinRes, liRes, ttRes] = await Promise.all([
         fetch(`${apiUrl}/api/facebook/pages?_t=${Date.now()}`, { credentials: 'include', cache: 'no-store' }),
         fetch(`${apiUrl}/api/instagram/accounts?_t=${Date.now()}`, { credentials: 'include', cache: 'no-store' }),
         fetch(`${apiUrl}/api/pinterest/accounts?_t=${Date.now()}`, { credentials: 'include', cache: 'no-store' }),
         fetch(`${apiUrl}/api/linkedin/accounts?_t=${Date.now()}`, { credentials: 'include', cache: 'no-store' }),
+        fetch(`${apiUrl}/api/tiktok/accounts?_t=${Date.now()}`, { credentials: 'include', cache: 'no-store' }),
       ]);
 
       if (fbRes.ok) {
@@ -180,10 +189,35 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
         setLinkedinAccounts(accounts);
         if (accounts.length > 0) setSelectedLinkedInAccountId(accounts[0].linkedin_id || accounts[0].id || '');
       }
+
+      if (ttRes.ok) {
+        const ttData = await ttRes.json();
+        const accounts = ttData.accounts || [];
+        setTiktokAccounts(accounts);
+        if (accounts.length > 0) setSelectedTikTokAccountId(accounts[0].open_id || accounts[0].id || '');
+      }
     } catch (e) {
       console.error('Error fetching channels:', e);
     } finally {
       setLoadingChannels(false);
+    }
+  };
+
+  const handleDisconnectTikTok = async (accountId?: string) => {
+    if (!confirm('Are you sure you want to disconnect this TikTok account?')) return;
+    try {
+      const targetId = accountId || selectedTikTokAccountId || tiktokAccounts[0]?.open_id || tiktokAccounts[0]?.id;
+      const res = await fetch(`${apiUrl}/api/tiktok/disconnect`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountId: targetId }),
+      });
+      if (res.ok) {
+        loadChannels();
+      }
+    } catch (err) {
+      console.error('Error disconnecting TikTok:', err);
     }
   };
 
@@ -200,13 +234,31 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
     }
   };
 
+  const refreshTikTokStatus = async () => {
+    try {
+      const res = await fetch(`${apiUrl}/api/tiktok/refresh-status`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.updatedCount > 0) {
+          loadPosts();
+        }
+      }
+    } catch (err) {
+      console.warn('Error refreshing TikTok status on load:', err);
+    }
+  };
+
   useEffect(() => {
     loadChannels();
     loadPosts();
+    refreshTikTokStatus();
   }, [refreshTrigger]);
 
-  // Calculate connected channels count out of 4
-  const connectedCount = (fbPages.length > 0 ? 1 : 0) + (igAccounts.length > 0 ? 1 : 0) + (pinterestAccounts.length > 0 ? 1 : 0) + (linkedinAccounts.length > 0 ? 1 : 0);
+  // Calculate connected channels count out of 5
+  const connectedCount = (fbPages.length > 0 ? 1 : 0) + (igAccounts.length > 0 ? 1 : 0) + (pinterestAccounts.length > 0 ? 1 : 0) + (linkedinAccounts.length > 0 ? 1 : 0) + (tiktokAccounts.length > 0 ? 1 : 0);
 
   // File selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -257,8 +309,8 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
     setPublishError(null);
     setPublishSuccess(null);
 
-    if (!postToFb && !postToIg && !postToPinterest && !postToLinkedIn) {
-      setPublishError('Please select at least one channel (Facebook, Instagram, Pinterest, or LinkedIn).');
+    if (!postToFb && !postToIg && !postToPinterest && !postToLinkedIn && !postToTikTok) {
+      setPublishError('Please select at least one channel (Facebook, Instagram, Pinterest, LinkedIn, or TikTok).');
       return;
     }
 
@@ -272,8 +324,13 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
       return;
     }
 
+    if (postToTikTok && !imageFile && !imageUrl.trim()) {
+      setPublishError('TikTok requires a video file (.mp4, .mov, .webm) or public video URL.');
+      return;
+    }
+
     if ((postToFb || postToPinterest || postToLinkedIn) && !postText.trim() && !imageFile && !imageUrl.trim()) {
-      setPublishError('Please enter some text or attach an image.');
+      setPublishError('Please enter some text or attach an image/video.');
       return;
     }
 
@@ -439,6 +496,51 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
           throw new Error(liData.error || 'Failed to publish to LinkedIn.');
         }
         messages.push(`LinkedIn: Posted successfully! (ID: ${liData.postId})`);
+      }
+
+      // TikTok Publish
+      if (postToTikTok) {
+        const targetTikTokId = selectedTikTokAccountId || tiktokAccounts[0]?.open_id || tiktokAccounts[0]?.id;
+
+        if (!targetTikTokId && tiktokAccounts.length === 0) {
+          throw new Error('Please connect a TikTok account first.');
+        }
+
+        let ttRes: Response;
+        if (imageFile) {
+          const formData = new FormData();
+          if (targetTikTokId) formData.append('accountId', targetTikTokId);
+          formData.append('title', postText.trim());
+          formData.append('privacyLevel', tiktokPrivacyLevel);
+          formData.append('isDraft', tiktokIsDraft ? 'true' : 'false');
+          formData.append('disableComment', (!tiktokAllowComment).toString());
+          formData.append('disableDuet', (!tiktokAllowDuet).toString());
+          formData.append('disableStitch', (!tiktokAllowStitch).toString());
+          formData.append('video', imageFile);
+          ttRes = await fetch(`${apiUrl}/api/auth/tiktok/post`, { method: 'POST', body: formData, credentials: 'include' });
+        } else {
+          ttRes = await fetch(`${apiUrl}/api/auth/tiktok/post`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              accountId: targetTikTokId,
+              title: postText.trim(),
+              privacyLevel: tiktokPrivacyLevel,
+              isDraft: tiktokIsDraft,
+              disableComment: !tiktokAllowComment,
+              disableDuet: !tiktokAllowDuet,
+              disableStitch: !tiktokAllowStitch,
+              videoUrl: imageUrl.trim(),
+            }),
+          });
+        }
+
+        const ttData = await ttRes.json();
+        if (!ttRes.ok || !ttData.success) {
+          throw new Error(ttData.error || 'Failed to publish video to TikTok.');
+        }
+        messages.push(`TikTok: ${ttData.isDraft ? 'Saved to drafts!' : 'Published successfully!'} (ID: ${ttData.postId})`);
       }
 
       setPublishSuccess(messages.join(' • '));
@@ -627,6 +729,17 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
                 <FaPinterestP />
               </button>
 
+              {/* TikTok */}
+              <button
+                onClick={() => setChannelModalOpen(true)}
+                title={tiktokAccounts.length > 0 ? `Connected: @${tiktokAccounts[0].username || tiktokAccounts[0].display_name}` : "Connect TikTok"}
+                className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs cursor-pointer transition ${
+                  tiktokAccounts.length > 0 ? 'bg-black ring-2 ring-gray-400' : 'bg-gray-300 hover:bg-black'
+                }`}
+              >
+                <FaTiktok />
+              </button>
+
               {/* Plus Button */}
               <button
                 onClick={() => setChannelModalOpen(true)}
@@ -643,22 +756,22 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
         {/* Sidebar Footer Widgets */}
         <div className="p-3 space-y-3">
           
-          {/* "0/3 channels connected" Card */}
+          {/* channels connected Card */}
           {!channelWidgetDismissed && (
             <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 relative">
               <button
                 onClick={() => setChannelWidgetDismissed(true)}
-                className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+                className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
               <p className="text-xs font-semibold text-gray-800 mb-2">
-                {connectedCount}/4 channels connected
+                {connectedCount}/5 channels connected
               </p>
               <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
                 <div 
                   className="bg-[#a6e59a] h-full transition-all" 
-                  style={{ width: `${Math.min(100, (connectedCount / 4) * 100)}%` }} 
+                  style={{ width: `${Math.min(100, (connectedCount / 5) * 100)}%` }} 
                 />
               </div>
             </div>
@@ -900,12 +1013,26 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
                     {postsHistory.slice(0, 3).map((p) => (
                       <div key={p.id} className="p-3 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between text-xs">
                         <div className="flex items-center gap-2.5">
-                          <span className={`w-2 h-2 rounded-full ${p.channel === 'instagram' ? 'bg-[#E1306C]' : (p.channel === 'pinterest' ? 'bg-[#E60023]' : 'bg-[#1877F2]')}`} />
+                          <span className={`w-2 h-2 rounded-full ${
+                            p.channel === 'instagram' ? 'bg-[#E1306C]' :
+                            p.channel === 'pinterest' ? 'bg-[#E60023]' :
+                            p.channel === 'linkedin' ? 'bg-[#0A66C2]' :
+                            p.channel === 'tiktok' ? 'bg-black' :
+                            'bg-[#1877F2]'
+                          }`} />
 
-                          <p className="font-semibold text-gray-800 line-clamp-1">{p.message || 'Photo Post'}</p>
+                          <p className="font-semibold text-gray-800 line-clamp-1">{p.message || (p.channel === 'tiktok' ? 'TikTok Video' : 'Photo Post')}</p>
                         </div>
-                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                          Published
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          p.status === 'failed' ? 'text-rose-600 bg-rose-50' :
+                          p.status === 'processing_upload' ? 'text-amber-600 bg-amber-50' :
+                          p.status === 'draft_sent' ? 'text-blue-600 bg-blue-50' :
+                          'text-emerald-600 bg-emerald-50'
+                        }`}>
+                          {p.status === 'failed' ? 'Failed' :
+                           p.status === 'processing_upload' ? 'Processing' :
+                           p.status === 'draft_sent' ? 'Draft Sent' :
+                           'Published'}
                         </span>
                       </div>
                     ))}
@@ -1002,11 +1129,22 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
                   <div
                     onClick={() => setPostToLinkedIn(!postToLinkedIn)}
                     className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border-2 transition cursor-pointer ${
-                      postToLinkedIn ? 'border-[#0A66C2] bg-blue-50 text-blue-900 font-bold' : 'border-gray-200 text-gray-500'
+                      postToLinkedIn ? 'border-[#0A66C2] bg-blue-50 text-blue-900 font-bold' : 'border-gray-200 text-gray-500 hover:border-gray-300'
                     }`}
                   >
                     <FaLinkedinIn className="text-[#0A66C2] text-base shrink-0" />
                     <span className="text-xs">LinkedIn ({linkedinAccounts.length > 0 ? linkedinAccounts[0].name : 'Connect'})</span>
+                  </div>
+
+                  {/* TikTok Pill */}
+                  <div
+                    onClick={() => setPostToTikTok(!postToTikTok)}
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border-2 transition cursor-pointer ${
+                      postToTikTok ? 'border-black bg-gray-900 text-white font-bold' : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                    }`}
+                  >
+                    <FaTiktok className={postToTikTok ? 'text-white text-base shrink-0' : 'text-black text-base shrink-0'} />
+                    <span className="text-xs">TikTok ({tiktokAccounts.length > 0 ? `@${tiktokAccounts[0]?.username || tiktokAccounts[0]?.display_name}` : 'Connect'})</span>
                   </div>
                 </div>
               </div>
@@ -1123,13 +1261,142 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
                 </div>
               )}
 
+              {/* TikTok Settings (Conditional) */}
+              {postToTikTok && (
+                <div className="p-4 bg-gray-900 text-white border border-gray-800 rounded-2xl space-y-3 shadow-sm">
+                  <div className="flex items-center justify-between border-b border-gray-800 pb-2">
+                    <span className="text-xs font-bold flex items-center gap-1.5">
+                      <FaTiktok className="text-white" /> TikTok Video Settings
+                    </span>
+                    {tiktokAccounts.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleDisconnectTikTok()}
+                        className="text-[11px] text-gray-400 hover:text-rose-400 transition cursor-pointer"
+                      >
+                        Disconnect
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Account Selection if multiple */}
+                  {tiktokAccounts.length > 1 && (
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-300 mb-1">
+                        Publishing to:
+                      </label>
+                      <select
+                        value={selectedTikTokAccountId || (tiktokAccounts[0]?.open_id || '')}
+                        onChange={(e) => setSelectedTikTokAccountId(e.target.value)}
+                        className="w-full px-3 py-1.5 text-xs border border-gray-700 rounded-xl bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-gray-500"
+                      >
+                        {tiktokAccounts.map((a) => (
+                          <option key={a.open_id || a.id} value={a.open_id || a.id}>
+                            @{a.username} ({a.display_name || 'Creator'})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Publish Mode: Direct Post vs Draft Upload */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-300 mb-1.5">
+                      Publish Mode:
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setTiktokIsDraft(false)}
+                        className={`py-2 px-3 rounded-xl text-xs font-semibold border transition cursor-pointer flex flex-col items-center justify-center text-center ${
+                          !tiktokIsDraft
+                            ? 'bg-white text-gray-950 border-white'
+                            : 'bg-gray-800/80 text-gray-400 border-gray-700 hover:border-gray-500'
+                        }`}
+                      >
+                        <span>Direct Publish</span>
+                        <span className="text-[10px] opacity-75">Posts directly to TikTok</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setTiktokIsDraft(true)}
+                        className={`py-2 px-3 rounded-xl text-xs font-semibold border transition cursor-pointer flex flex-col items-center justify-center text-center ${
+                          tiktokIsDraft
+                            ? 'bg-white text-gray-950 border-white'
+                            : 'bg-gray-800/80 text-gray-400 border-gray-700 hover:border-gray-500'
+                        }`}
+                      >
+                        <span>Save as Draft</span>
+                        <span className="text-[10px] opacity-75">Review in TikTok app</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Privacy Level & Permissions */}
+                  {!tiktokIsDraft && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-gray-300 mb-1">
+                          Privacy Level:
+                        </label>
+                        <select
+                          value={tiktokPrivacyLevel}
+                          onChange={(e: any) => setTiktokPrivacyLevel(e.target.value)}
+                          className="w-full px-3 py-1.5 text-xs border border-gray-700 rounded-xl bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-gray-500"
+                        >
+                          <option value="PUBLIC_TO_EVERYONE">Public to Everyone</option>
+                          <option value="MUTUAL_FOLLOW_FRIENDS">Friends Only</option>
+                          <option value="SELF_ONLY">Only Me (Private)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-gray-300 mb-1">
+                          Interactions:
+                        </label>
+                        <div className="flex items-center gap-3 pt-1 text-xs">
+                          <label className="flex items-center gap-1 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={tiktokAllowComment}
+                              onChange={(e) => setTiktokAllowComment(e.target.checked)}
+                              className="rounded border-gray-600 bg-gray-800 text-blue-500"
+                            />
+                            <span className="text-[11px] text-gray-300">Comments</span>
+                          </label>
+                          <label className="flex items-center gap-1 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={tiktokAllowDuet}
+                              onChange={(e) => setTiktokAllowDuet(e.target.checked)}
+                              className="rounded border-gray-600 bg-gray-800 text-blue-500"
+                            />
+                            <span className="text-[11px] text-gray-300">Duet</span>
+                          </label>
+                          <label className="flex items-center gap-1 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={tiktokAllowStitch}
+                              onChange={(e) => setTiktokAllowStitch(e.target.checked)}
+                              className="rounded border-gray-600 bg-gray-800 text-blue-500"
+                            />
+                            <span className="text-[11px] text-gray-300">Stitch</span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Text Area */}
               <div>
                 <textarea
                   rows={3}
                   value={postText}
                   onChange={(e) => setPostText(e.target.value)}
-                  placeholder="What would you like to share? (Used as Pin description for Pinterest)"
+                  placeholder="What would you like to share? (Used as caption/hashtags for TikTok)"
                   className="w-full p-4 border border-gray-200 rounded-2xl text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"
                 />
               </div>
@@ -1137,20 +1404,19 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
               {/* Media Upload */}
               <div>
                 <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
-                  Attach Photo / Media {(postToIg || postToPinterest) && <span className="text-rose-500">* (Required for Instagram & Pinterest)</span>}
+                  Attach Photo / Video {(postToIg || postToPinterest || postToTikTok) && <span className="text-rose-500">* (Required for Instagram, Pinterest & TikTok)</span>}
                 </label>
-
 
                 <div className="border-2 border-dashed border-gray-200 hover:border-gray-400 rounded-2xl p-4 text-center cursor-pointer relative bg-gray-50/50">
                   <input
                     type="file"
-                    accept="image/jpeg,image/png,image/webp"
+                    accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm"
                     onChange={handleFileChange}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   />
                   <ImageIcon className="w-6 h-6 text-gray-400 mx-auto mb-1" />
-                  <p className="text-xs font-bold text-gray-700">Click or drag image file</p>
-                  <p className="text-[10px] text-gray-400">JPG, PNG, WebP</p>
+                  <p className="text-xs font-bold text-gray-700">Click or drag image or video file</p>
+                  <p className="text-[10px] text-gray-400">MP4, MOV, WebM, JPG, PNG, WebP</p>
                 </div>
 
                 <div className="mt-2.5">
@@ -1167,10 +1433,25 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
                 {(imagePreview || imageUrl) && (
                   <div className="mt-3 p-2.5 bg-gray-50 rounded-xl border border-gray-200 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <img src={imagePreview || imageUrl} alt="Preview" className="w-12 h-12 rounded-lg object-cover border" />
-                      <span className="text-xs font-semibold text-gray-700 truncate max-w-[250px]">{imageFile ? imageFile.name : imageUrl}</span>
+                      {imageFile?.type.startsWith('video') || (imageUrl && imageUrl.match(/\.(mp4|mov|webm)(\?.*)?$/i)) ? (
+                        <video
+                          src={imagePreview || imageUrl}
+                          className="w-12 h-12 rounded-lg object-cover border bg-black"
+                          muted
+                        />
+                      ) : (
+                        <img src={imagePreview || imageUrl} alt="Preview" className="w-12 h-12 rounded-lg object-cover border" />
+                      )}
+                      <div>
+                        <span className="text-xs font-semibold text-gray-700 truncate max-w-[250px] block">
+                          {imageFile ? imageFile.name : imageUrl}
+                        </span>
+                        {(imageFile?.type.startsWith('video') || (imageUrl && imageUrl.match(/\.(mp4|mov|webm)(\?.*)?$/i))) && (
+                          <span className="text-[10px] font-bold text-gray-500 uppercase">Video File</span>
+                        )}
+                      </div>
                     </div>
-                    <button onClick={() => { setImageFile(null); setImagePreview(null); setImageUrl(''); }} className="text-xs text-rose-600 font-bold hover:underline">
+                    <button onClick={() => { setImageFile(null); setImagePreview(null); setImageUrl(''); }} className="text-xs text-rose-600 font-bold hover:underline cursor-pointer">
                       Remove
                     </button>
                   </div>
@@ -1234,6 +1515,7 @@ export function BufferDashboard({ user, onLogout, onGoToLanding, apiUrl, refresh
         igAccounts={igAccounts}
         pinterestAccounts={pinterestAccounts}
         linkedinAccounts={linkedinAccounts}
+        tiktokAccounts={tiktokAccounts}
         onChannelConnected={loadChannels}
       />
 
