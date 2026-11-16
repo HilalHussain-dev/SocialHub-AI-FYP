@@ -32,37 +32,43 @@ export default function App() {
   const [authChecking, setAuthChecking] = useState(true);
 
   // Current view: 'landing' | 'login' | 'dashboard'
+  // Default entry view is ALWAYS 'landing' unless specifically navigating to auth or dashboard
   const [view, setView] = useState<'landing' | 'login' | 'dashboard'>(() => {
     if (typeof window !== 'undefined') {
+      try {
+        // Clear any old view state persisted in localStorage so it doesn't force dashboard on fresh load
+        localStorage.removeItem('socialhub_view');
+      } catch {}
+
       const h = window.location.hash;
       const p = window.location.pathname;
-      if (h === '#admin' || h === '#dashboard' || p === '/dashboard' || p === '/facebook/callback' || p === '/instagram/callback' || p === '/pinterest/callback' || p === '/linkedin/callback') {
-        return 'dashboard';
-      }
+
+      // Auth routes
       if (h === '#login' || h === '#register' || h === '#signup' || p === '/login' || p === '/register' || p === '/signup') {
         return 'login';
       }
-      try {
-        const saved = localStorage.getItem('socialhub_view');
-        if (saved === 'dashboard') return 'dashboard';
-      } catch {}
+
+      // OAuth callbacks always require dashboard view
+      if (p === '/facebook/callback' || p === '/instagram/callback' || p === '/pinterest/callback' || p === '/linkedin/callback' || p === '/tiktok/callback') {
+        return 'dashboard';
+      }
+
+      // Explicit dashboard route
+      if (h === '#admin' || h === '#dashboard' || p === '/dashboard') {
+        return 'dashboard';
+      }
     }
     return 'landing';
   });
-
-  // Helper to persist view state
-  const updateView = (newView: 'landing' | 'login' | 'dashboard') => {
-    setView(newView);
-    try {
-      localStorage.setItem('socialhub_view', newView);
-    } catch {}
-  };
 
   // Auth initial mode: 'login' | 'register'
   const [authMode, setAuthMode] = useState<'login' | 'register'>(() => {
     if (typeof window !== 'undefined') {
       const h = window.location.hash;
       const p = window.location.pathname;
+      if (h === '#login' || p === '/login') {
+        return 'login';
+      }
       if (h === '#register' || h === '#signup' || p === '/register' || p === '/signup') {
         return 'register';
       }
@@ -88,8 +94,17 @@ export default function App() {
       setCurrentPath(p);
       setCurrentHash(h);
 
-      if (h === '#admin' || h === '#dashboard' || p === '/dashboard' || p === '/facebook/callback' || p === '/instagram/callback' || p === '/pinterest/callback' || p === '/linkedin/callback') {
-        updateView('dashboard');
+      if (
+        h === '#admin' ||
+        h === '#dashboard' ||
+        p === '/dashboard' ||
+        p === '/facebook/callback' ||
+        p === '/instagram/callback' ||
+        p === '/pinterest/callback' ||
+        p === '/linkedin/callback' ||
+        p === '/tiktok/callback'
+      ) {
+        setView('dashboard');
       } else if (
         h === '#register' ||
         h === '#signup' ||
@@ -97,20 +112,13 @@ export default function App() {
         p === '/signup'
       ) {
         setAuthMode('register');
-        updateView('login');
+        setView('login');
       } else if (h === '#login' || p === '/login') {
         setAuthMode('login');
-        updateView('login');
-      } else if (h === '' && p === '/') {
-        try {
-          const saved = localStorage.getItem('socialhub_view');
-          if (saved === 'dashboard') {
-            updateView('dashboard');
-            window.location.hash = '#dashboard';
-            return;
-          }
-        } catch {}
-        updateView('landing');
+        setView('login');
+      } else {
+        // Root '/' or empty hash or '#pricing' - default landing page
+        setView('landing');
       }
     };
 
@@ -137,18 +145,45 @@ export default function App() {
             setUser(data.user);
             const h = window.location.hash;
             const p = window.location.pathname;
-            let saved = null;
-            try { saved = localStorage.getItem('socialhub_view'); } catch {}
-            if (h === '#dashboard' || h === '#admin' || p === '/dashboard' || saved === 'dashboard' || p.includes('/callback')) {
-              updateView('dashboard');
+            // Only switch to dashboard if explicitly requested via hash or path
+            if (h === '#dashboard' || h === '#admin' || p === '/dashboard' || p.includes('/callback')) {
+              setView('dashboard');
               if (window.location.hash !== '#dashboard') {
                 window.location.hash = '#dashboard';
               }
             }
+          } else {
+            setUser(null);
+            // If user is not authenticated and hash is #dashboard or #admin, redirect to landing
+            const h = window.location.hash;
+            const p = window.location.pathname;
+            if (h === '#dashboard' || h === '#admin' || p === '/dashboard') {
+              setView('landing');
+              window.location.hash = '';
+              window.history.replaceState({}, '', '/');
+            }
+          }
+        } else {
+          setUser(null);
+          // If auth check fails (401/403) and user is on #dashboard, redirect to landing
+          const h = window.location.hash;
+          const p = window.location.pathname;
+          if (h === '#dashboard' || h === '#admin' || p === '/dashboard') {
+            setView('landing');
+            window.location.hash = '';
+            window.history.replaceState({}, '', '/');
           }
         }
       } catch (err) {
         console.warn('Session check error:', err);
+        setUser(null);
+        const h = window.location.hash;
+        const p = window.location.pathname;
+        if (h === '#dashboard' || h === '#admin' || p === '/dashboard') {
+          setView('landing');
+          window.location.hash = '';
+          window.history.replaceState({}, '', '/');
+        }
       } finally {
         setAuthChecking(false);
       }
@@ -157,18 +192,18 @@ export default function App() {
     checkSession();
   }, []);
 
-  // Handle OAuth Callbacks (/facebook/callback, /instagram/callback, /pinterest/callback, or /linkedin/callback)
+  // Handle OAuth Callbacks (/facebook/callback, /instagram/callback, /pinterest/callback, /linkedin/callback, or /tiktok/callback)
   useEffect(() => {
-    const isCallback = currentPath === '/facebook/callback' || currentPath === '/instagram/callback' || currentPath === '/pinterest/callback' || currentPath === '/linkedin/callback' || window.location.pathname === '/facebook/callback' || window.location.pathname === '/instagram/callback' || window.location.pathname === '/pinterest/callback' || window.location.pathname === '/linkedin/callback';
+    const isCallback = currentPath === '/facebook/callback' || currentPath === '/instagram/callback' || currentPath === '/pinterest/callback' || currentPath === '/linkedin/callback' || currentPath === '/tiktok/callback' || window.location.pathname === '/facebook/callback' || window.location.pathname === '/instagram/callback' || window.location.pathname === '/pinterest/callback' || window.location.pathname === '/linkedin/callback' || window.location.pathname === '/tiktok/callback';
 
     if (isCallback) {
       const params = new URLSearchParams(window.location.search);
       const pendingKey = params.get('pending');
-      const platform = params.get('platform') as 'facebook' | 'instagram' | 'pinterest' | 'linkedin' | null;
+      const platform = params.get('platform') as 'facebook' | 'instagram' | 'pinterest' | 'linkedin' | 'tiktok' | null;
       const error = params.get('error');
 
       // Always stay in dashboard view
-      updateView('dashboard');
+      setView('dashboard');
       window.location.hash = '#dashboard';
 
       if (error) {
@@ -177,7 +212,7 @@ export default function App() {
         return;
       }
 
-      if (platform === 'pinterest' || platform === 'linkedin') {
+      if (platform === 'pinterest' || platform === 'linkedin' || platform === 'tiktok') {
         // Smoothly reload channels in dashboard
         setChannelRefreshKey((prev) => prev + 1);
       }
@@ -213,7 +248,7 @@ export default function App() {
 
   const handleLoginSuccess = (loggedInUser: User) => {
     setUser(loggedInUser);
-    updateView('dashboard');
+    setView('dashboard');
     window.location.hash = '#dashboard';
   };
 
@@ -223,24 +258,40 @@ export default function App() {
       await fetch(`${API_URL}/api/auth/logout`, { method: 'POST', credentials: 'include' });
     } catch {}
     setUser(null);
-    updateView('landing');
+    setView('landing');
     window.location.hash = '';
-    window.location.pathname = '/';
+    window.history.replaceState({}, '', '/');
   };
 
   // =====================================================
-  // VIEW: BUFFER ADMIN DASHBOARD (MATCHING IMAGE 1)
+  // VIEW: BUFFER ADMIN DASHBOARD
   // =====================================================
   if (view === 'dashboard') {
-    if (!user && !authChecking) {
+    if (authChecking) {
+      return (
+        <div className="min-h-screen bg-[#faf8f5] flex items-center justify-center">
+          <div className="flex flex-col items-center gap-3">
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-10 h-10 text-gray-900 animate-pulse">
+              <path d="M1.5 5.5L12 11.25L22.5 5.5L12 0L1.5 5.5Z" />
+              <path d="M1.5 12L12 17.75L22.5 12L19.5 10.35L12 14.5L4.5 10.35L1.5 12Z" />
+              <path d="M1.5 18.5L12 24.25L22.5 18.5L19.5 16.85L12 21L4.5 16.85L1.5 18.5Z" />
+            </svg>
+            <p className="text-sm text-gray-500 font-medium">Loading workspace...</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (!user) {
       // If user is not logged in, show the Login Page
       return (
         <LoginPage
           initialMode={authMode}
           onLoginSuccess={handleLoginSuccess}
           onGoToLanding={() => {
-            updateView('landing');
+            setView('landing');
             window.location.hash = '';
+            window.history.replaceState({}, '', '/');
           }}
           apiUrl={API_URL}
         />
@@ -250,11 +301,12 @@ export default function App() {
     return (
       <>
         <BufferDashboard
-          user={user || { id: 'admin', email: 'hilalhussain1049@gmail.com', name: 'ahmadkhan61358' }}
+          user={user}
           onLogout={handleLogout}
           onGoToLanding={() => {
-            updateView('landing');
+            setView('landing');
             window.location.hash = '';
+            window.history.replaceState({}, '', '/');
           }}
           apiUrl={API_URL}
           refreshTrigger={channelRefreshKey}
@@ -263,7 +315,7 @@ export default function App() {
           isOpen={pickerOpen}
           onClose={() => {
             setPickerOpen(false);
-            updateView('dashboard');
+            setView('dashboard');
             window.location.hash = '#dashboard';
           }}
           platform={pickerPlatform}
@@ -273,7 +325,7 @@ export default function App() {
           apiUrl={API_URL}
           onConnected={() => {
             setPickerOpen(false);
-            updateView('dashboard');
+            setView('dashboard');
             window.location.hash = '#dashboard';
             // Smoothly reload channels in dashboard without page refresh!
             setChannelRefreshKey((prev) => prev + 1);
@@ -292,8 +344,9 @@ export default function App() {
         initialMode={authMode}
         onLoginSuccess={handleLoginSuccess}
         onGoToLanding={() => {
-          updateView('landing');
+          setView('landing');
           window.location.hash = '';
+          window.history.replaceState({}, '', '/');
         }}
         apiUrl={API_URL}
       />
@@ -314,11 +367,11 @@ export default function App() {
         user={user}
         onOpenAuth={(mode) => {
           setAuthMode(mode);
-          updateView('login');
+          setView('login');
           window.location.hash = mode === 'register' ? '#register' : '#login';
         }}
         onOpenAdmin={() => {
-          updateView('dashboard');
+          setView('dashboard');
           window.location.hash = '#dashboard';
         }}
         onLogout={handleLogout}

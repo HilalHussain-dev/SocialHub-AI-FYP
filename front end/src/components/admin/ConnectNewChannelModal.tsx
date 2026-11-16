@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { 
   X, 
   Plus, 
-  Store, 
-  Contact, 
+  Store,
   Check, 
   Loader2, 
   ExternalLink,
@@ -16,10 +15,9 @@ import {
   FaYoutube, 
   FaTiktok, 
   FaPinterestP, 
-  FaXTwitter, 
-  FaMastodon 
+  FaXTwitter
 } from 'react-icons/fa6';
-import { SiThreads, SiBluesky, SiSubstack } from 'react-icons/si';
+import { SiThreads } from 'react-icons/si';
 
 export interface FacebookPage {
   page_id?: string;
@@ -53,6 +51,14 @@ export interface LinkedInAccount {
   profile_picture?: string;
 }
 
+export interface TikTokAccount {
+  id?: string;
+  open_id?: string;
+  username: string;
+  display_name?: string;
+  avatar_url?: string;
+}
+
 interface ConnectNewChannelModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -61,6 +67,7 @@ interface ConnectNewChannelModalProps {
   igAccounts: InstagramAccount[];
   pinterestAccounts?: PinterestAccount[];
   linkedinAccounts?: LinkedInAccount[];
+  tiktokAccounts?: TikTokAccount[];
   onChannelConnected?: () => void;
 }
 
@@ -72,6 +79,7 @@ export function ConnectNewChannelModal({
   igAccounts,
   pinterestAccounts = [],
   linkedinAccounts = [],
+  tiktokAccounts = [],
   onChannelConnected,
 }: ConnectNewChannelModalProps) {
   const [requestChannelOpen, setRequestChannelOpen] = useState(false);
@@ -84,6 +92,7 @@ export function ConnectNewChannelModal({
   const [igSwitcherOpen, setIgSwitcherOpen] = useState(false);
   const [pinSwitcherOpen, setPinSwitcherOpen] = useState(false);
   const [linkedinSwitcherOpen, setLinkedinSwitcherOpen] = useState(false);
+  const [tiktokSwitcherOpen, setTiktokSwitcherOpen] = useState(false);
   const [activatingId, setActivatingId] = useState<string | null>(null);
 
   if (!isOpen) return null;
@@ -92,6 +101,7 @@ export function ConnectNewChannelModal({
   const isIgConnected = igAccounts.length > 0;
   const isPinConnected = pinterestAccounts.length > 0;
   const isLinkedInConnected = linkedinAccounts.length > 0;
+  const isTikTokConnected = tiktokAccounts.length > 0;
 
   const handleSelectChannel = (channelId: string) => {
     switch (channelId) {
@@ -121,6 +131,13 @@ export function ConnectNewChannelModal({
           setLinkedinSwitcherOpen(true);
         } else {
           window.location.href = `${apiUrl}/api/auth/linkedin/connect`;
+        }
+        break;
+      case 'tiktok':
+        if (tiktokAccounts.length > 1) {
+          setTiktokSwitcherOpen(true);
+        } else {
+          window.location.href = `${apiUrl}/api/auth/tiktok/connect`;
         }
         break;
       case 'request':
@@ -221,6 +238,26 @@ export function ConnectNewChannelModal({
     }
   };
 
+  const handleActivateTikTokAccount = async (accountId: string) => {
+    setActivatingId(accountId);
+    try {
+      const res = await fetch(`${apiUrl}/api/tiktok/accounts/activate`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountId }),
+      });
+      if (res.ok) {
+        if (onChannelConnected) onChannelConnected();
+        setTiktokSwitcherOpen(false);
+      }
+    } catch (err) {
+      console.error('Error activating TikTok account:', err);
+    } finally {
+      setActivatingId(null);
+    }
+  };
+
   const handleRequestSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!requestedChannelName.trim()) return;
@@ -268,21 +305,6 @@ export function ConnectNewChannelModal({
       connectedLabel: isFbConnected ? (fbPages[0]?.page_name || fbPages[0]?.name) : undefined
     },
     {
-      id: 'bluesky',
-      name: 'Bluesky',
-      desc: 'Profile',
-      icon: <SiBluesky className="w-5 h-5 text-white" />,
-      colorBg: 'bg-[#0285FF]',
-    },
-    {
-      id: 'substack',
-      name: 'Substack',
-      desc: 'Profile',
-      icon: <SiSubstack className="w-4 h-4 text-white" />,
-      colorBg: 'bg-[#FF6719]',
-      badge: 'New',
-    },
-    {
       id: 'youtube',
       name: 'YouTube',
       desc: 'Channel',
@@ -292,16 +314,11 @@ export function ConnectNewChannelModal({
     {
       id: 'tiktok',
       name: 'TikTok',
-      desc: 'Business or Personal',
+      desc: 'Business or Creator',
       icon: <FaTiktok className="w-5 h-5 text-white" />,
       colorBg: 'bg-black text-white',
-    },
-    {
-      id: 'mastodon',
-      name: 'Mastodon',
-      desc: 'Profile',
-      icon: <FaMastodon className="w-5 h-5 text-white" />,
-      colorBg: 'bg-[#6364FF]',
+      connected: isTikTokConnected,
+      connectedLabel: isTikTokConnected ? `@${tiktokAccounts[0]?.username || tiktokAccounts[0]?.display_name}` : undefined,
     },
     {
       id: 'pinterest',
@@ -325,13 +342,6 @@ export function ConnectNewChannelModal({
       desc: 'Profile',
       icon: <FaXTwitter className="w-5 h-5 text-white" />,
       colorBg: 'bg-black text-white',
-    },
-    {
-      id: 'start-page',
-      name: 'Start Page',
-      desc: 'Simple, powerful link-in-bio',
-      icon: <Contact className="w-5 h-5 text-white" />,
-      colorBg: 'bg-[#10B981]',
     },
     {
       id: 'request',
@@ -379,7 +389,7 @@ export function ConnectNewChannelModal({
                 onClick={() => handleSelectChannel(channel.id)}
                 className="relative bg-white border border-gray-200/90 hover:border-gray-300 rounded-2xl p-6 py-7 flex flex-col items-center justify-center text-center cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 group"
               >
-                {/* "New" Badge for Substack */}
+                {/* Badge */}
                 {channel.badge && (
                   <span className="absolute top-3.5 right-3.5 text-[10px] font-bold text-purple-700 bg-purple-100/80 px-2 py-0.5 rounded-full tracking-wide">
                     {channel.badge}
@@ -759,10 +769,104 @@ export function ConnectNewChannelModal({
                 onClick={() => {
                   window.location.href = `${apiUrl}/api/auth/linkedin/connect`;
                 }}
-                className="w-full py-2 px-3 border border-gray-200 hover:bg-gray-50 text-gray-700 font-medium text-xs rounded-xl flex items-center justify-center gap-1.5 transition"
+                className="w-full py-2 px-3 border border-gray-200 hover:bg-gray-50 text-gray-700 font-medium text-xs rounded-xl flex items-center justify-center gap-1.5 transition cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 Connect / Authorize more accounts with LinkedIn
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TikTok Account Switcher Modal */}
+      {tiktokSwitcherOpen && (
+        <div 
+          className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs"
+          onClick={() => setTiktokSwitcherOpen(false)}
+        >
+          <div 
+            className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl border border-gray-200 space-y-4 animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-black text-white flex items-center justify-center">
+                  <FaTiktok className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-gray-900">Switch TikTok Account</h3>
+                  <p className="text-[11px] text-gray-400">Select which connected TikTok account you want to use</p>
+                </div>
+              </div>
+              <button onClick={() => setTiktokSwitcherOpen(false)} className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* List of TikTok Accounts */}
+            <div className="max-h-60 overflow-y-auto space-y-2 py-1">
+              {tiktokAccounts.map((account, idx) => {
+                const accountId = account.open_id || account.id || '';
+                const name = account.display_name || account.username;
+                const isActive = idx === 0;
+                const isActivating = activatingId === accountId;
+
+                return (
+                  <button
+                    key={accountId || idx}
+                    onClick={() => handleActivateTikTokAccount(accountId)}
+                    disabled={isActivating || isActive}
+                    className={`w-full flex items-center justify-between p-3 rounded-xl border text-left transition ${
+                      isActive 
+                        ? 'border-emerald-500 bg-emerald-50/50 text-emerald-950 font-bold'
+                        : 'border-gray-200 hover:border-gray-400 hover:bg-gray-50/50 text-gray-800'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      {account.avatar_url ? (
+                        <img
+                          src={account.avatar_url}
+                          alt={name}
+                          className="w-8 h-8 rounded-full object-cover shrink-0 border border-gray-200"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-lg bg-black text-white flex items-center justify-center font-bold text-xs shrink-0">
+                          <FaTiktok className="w-4 h-4" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-xs truncate">{name}</p>
+                        {account.username && <p className="text-[10px] text-gray-400 truncate">@{account.username}</p>}
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 ml-2">
+                      {isActivating ? (
+                        <Loader2 className="w-4 h-4 text-black animate-spin" />
+                      ) : isActive ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full font-bold">
+                          <Check className="w-3 h-3" /> Active
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-black font-semibold hover:underline">Select</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Action buttons */}
+            <div className="border-t border-gray-100 pt-3 flex flex-col gap-2">
+              <button
+                onClick={() => {
+                  window.location.href = `${apiUrl}/api/auth/tiktok/connect`;
+                }}
+                className="w-full py-2 px-3 border border-gray-200 hover:bg-gray-50 text-gray-700 font-medium text-xs rounded-xl flex items-center justify-center gap-1.5 transition cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Connect / Authorize more accounts with TikTok
               </button>
             </div>
           </div>

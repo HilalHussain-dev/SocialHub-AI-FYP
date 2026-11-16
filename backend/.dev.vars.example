@@ -31,3 +31,12 @@ PINTEREST_USE_SANDBOX=false
 LINKEDIN_CLIENT_ID=
 LINKEDIN_CLIENT_SECRET=
 LINKEDIN_REDIRECT_URI=http://localhost:8787/api/linkedin/callback
+
+# TikTok App Credentials (from developers.tiktok.com)
+TIKTOK_CLIENT_KEY=
+TIKTOK_CLIENT_SECRET=
+TIKTOK_REDIRECT_URI=http://localhost:8787/api/tiktok/callback
+# Set to "sandbox" or "true" if testing against TikTok Sandbox environment
+TIKTOK_USE_SANDBOX=false
+TIKTOK_SCOPES=user.info.basic,video.publish,video.upload
+

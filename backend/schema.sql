@@ -106,3 +106,22 @@ CREATE TABLE IF NOT EXISTS linkedin_accounts (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS tiktok_accounts (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    open_id TEXT NOT NULL,
+    union_id TEXT,
+    username TEXT,
+    display_name TEXT,
+    avatar_url TEXT,
+    access_token TEXT NOT NULL,
+    refresh_token TEXT,
+    token_expires_at TIMESTAMP,
+    refresh_token_expires_at TIMESTAMP,
+    scope TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, open_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+

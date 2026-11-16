@@ -21,7 +21,10 @@
 	 */
 	"vars": {
 		"PINTEREST_USE_SANDBOX": "true",
-		"PINTEREST_REDIRECT_URI": "https://socialhub-backend.hilalhussain1049.workers.dev/api/pinterest/callback"
+		"PINTEREST_REDIRECT_URI": "https://socialhub-backend.hilalhussain1049.workers.dev/api/pinterest/callback",
+		"TIKTOK_REDIRECT_URI": "https://socialhub-backend.hilalhussain1049.workers.dev/api/tiktok/callback",
+		"TIKTOK_USE_SANDBOX": "false",
+		"TIKTOK_SCOPES": "user.info.basic,video.publish,video.upload"
 	},
 	/**
 	 * Cloudflare D1 SQL Database
