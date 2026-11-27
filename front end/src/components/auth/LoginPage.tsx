@@ -9,13 +9,12 @@ import {
   Calendar,
   MessageSquare,
   BarChart2,
-  Plus,
-  Bookmark,
-  Share2,
-  Repeat,
   TrendingUp,
-  LayoutGrid
+  Repeat,
+  LayoutGrid,
+  Bookmark
 } from 'lucide-react';
+import logo from '../../assets/logo.png';
 
 interface LoginPageProps {
   initialMode?: 'login' | 'register';
@@ -24,7 +23,7 @@ interface LoginPageProps {
   apiUrl: string;
 }
 
-export function LoginPage({ initialMode = 'register', onLoginSuccess, onGoToLanding, apiUrl }: LoginPageProps) {
+export function LoginPage({ initialMode = 'login', onLoginSuccess, onGoToLanding, apiUrl }: LoginPageProps) {
   const [isRegister, setIsRegister] = useState(initialMode === 'register');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -76,32 +75,32 @@ export function LoginPage({ initialMode = 'register', onLoginSuccess, onGoToLand
   };
 
   return (
-    <div className="min-h-screen bg-[#faf8f5] flex flex-col justify-between font-sans selection:bg-[#c2f2b4] selection:text-gray-900">
+    <div className="min-h-screen bg-[#faf8f4] flex flex-col justify-between font-sans selection:bg-[#a6f087] selection:text-gray-900">
       
       {/* Main Split Layout Container */}
-      <div className="flex-1 max-w-[1340px] w-full mx-auto px-4 sm:px-8 py-8 md:py-12 flex flex-col lg:flex-row items-center justify-between gap-10 lg:gap-14">
+      <div className="flex-1 max-w-[1360px] w-full mx-auto px-4 sm:px-8 py-8 md:py-12 flex flex-col lg:flex-row items-center justify-between gap-10 lg:gap-14">
         
         {/* ========================================================= */}
         {/* LEFT COLUMN: AUTH FORM (MATCHING REFERENCE EXACTLY) */}
         {/* ========================================================= */}
         <div className="w-full max-w-[390px] mx-auto lg:mx-0 flex flex-col text-left py-4">
           
-          {/* Buffer Logo (3 stacked polygon layers) */}
+          {/* SocialHub AI Logo */}
           <div 
             onClick={onGoToLanding}
             className="cursor-pointer mb-5 flex justify-center group"
             title="Go to Landing Page"
           >
-            <svg viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 text-gray-900 group-hover:scale-105 transition-transform">
-              <path d="M1.5 5.5L12 11.25L22.5 5.5L12 0L1.5 5.5Z" />
-              <path d="M1.5 12L12 17.75L22.5 12L19.5 10.35L12 14.5L4.5 10.35L1.5 12Z" />
-              <path d="M1.5 18.5L12 24.25L22.5 18.5L19.5 16.85L12 21L4.5 16.85L1.5 18.5Z" />
-            </svg>
+            <img 
+              src={logo} 
+              alt="SocialHub AI Logo" 
+              className="w-10 h-10 object-contain group-hover:scale-105 transition-transform"
+            />
           </div>
 
           {/* Title */}
-          <h1 className="text-[25px] sm:text-[27px] font-extrabold text-gray-950 tracking-tight text-center">
-            {isRegister ? 'Create a Buffer Account' : 'Log in to Buffer'}
+          <h1 className="text-[25px] sm:text-[28px] font-extrabold text-gray-950 tracking-tight text-center leading-tight">
+            {isRegister ? 'Create SocialHub Account' : 'Log in to Social Hub Ai'}
           </h1>
 
           {/* Subtitle with Switch Mode Link */}
@@ -116,7 +115,7 @@ export function LoginPage({ initialMode = 'register', onLoginSuccess, onGoToLand
                     setError('');
                     window.location.hash = '#login';
                   }}
-                  className="font-semibold text-[#275e37] underline underline-offset-4 decoration-[#275e37]/50 hover:decoration-[#275e37] hover:text-[#1c4829] transition cursor-pointer"
+                  className="font-semibold text-gray-900 underline underline-offset-4 decoration-gray-900/40 hover:decoration-gray-900 hover:text-black transition cursor-pointer"
                 >
                   Log in instead
                 </button>
@@ -131,7 +130,7 @@ export function LoginPage({ initialMode = 'register', onLoginSuccess, onGoToLand
                     setError('');
                     window.location.hash = '#register';
                   }}
-                  className="font-semibold text-[#275e37] underline underline-offset-4 decoration-[#275e37]/50 hover:decoration-[#275e37] hover:text-[#1c4829] transition cursor-pointer"
+                  className="font-semibold text-gray-900 underline underline-offset-4 decoration-gray-900/40 hover:decoration-gray-900 hover:text-black transition cursor-pointer"
                 >
                   Create one instead
                 </button>
@@ -161,7 +160,7 @@ export function LoginPage({ initialMode = 'register', onLoginSuccess, onGoToLand
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Your email address"
-                className="w-full px-3.5 py-2.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition"
+                className="w-full px-3.5 py-2.5 bg-white border border-gray-300 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#a6f087] focus:border-transparent transition shadow-xs"
               />
             </div>
 
@@ -172,7 +171,7 @@ export function LoginPage({ initialMode = 'register', onLoginSuccess, onGoToLand
                   {isRegister ? 'Create Password' : 'Password'}
                 </label>
                 {!isRegister && (
-                  <a href="#" className="text-xs font-medium text-gray-500 hover:text-gray-800 underline">
+                  <a href="#" className="text-xs font-medium text-gray-500 hover:text-gray-900 underline underline-offset-2">
                     Forgot Password?
                   </a>
                 )}
@@ -184,7 +183,7 @@ export function LoginPage({ initialMode = 'register', onLoginSuccess, onGoToLand
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Your password"
-                  className="w-full px-3.5 py-2.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition pr-10"
+                  className="w-full px-3.5 py-2.5 bg-white border border-gray-300 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#a6f087] focus:border-transparent transition pr-10 shadow-xs"
                 />
                 <button
                   type="button"
@@ -197,7 +196,7 @@ export function LoginPage({ initialMode = 'register', onLoginSuccess, onGoToLand
               </div>
             </div>
 
-            {/* Password Requirements (shown on registration, matching image bullets) */}
+            {/* Password Requirements (shown on registration) */}
             {isRegister && (
               <div className="space-y-1.5 pt-1 text-xs">
                 <div className={`flex items-center gap-2 transition-colors ${hasMinLength ? 'text-emerald-700 font-medium' : 'text-gray-500'}`}>
@@ -215,11 +214,11 @@ export function LoginPage({ initialMode = 'register', onLoginSuccess, onGoToLand
               </div>
             )}
 
-            {/* Submit Button (Sign Up in image) */}
+            {/* Submit Button */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-3 py-3 bg-[#b2f0a5] hover:bg-[#a1e793] active:bg-[#92dc83] disabled:opacity-50 text-gray-950 font-bold rounded-lg text-sm transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm"
+              className="w-full mt-3 py-3 bg-[#a6f087] hover:bg-[#97e875] active:bg-[#88dc65] disabled:opacity-50 text-gray-950 font-bold rounded-xl text-sm transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs"
             >
               {loading ? (
                 <>
@@ -234,21 +233,21 @@ export function LoginPage({ initialMode = 'register', onLoginSuccess, onGoToLand
 
           {/* Quick Demo Credentials Info */}
           {!isRegister && (
-            <p className="text-[11px] text-gray-400 mt-4 text-center">
+            <p className="text-[11.5px] text-gray-400 mt-4 text-center">
               Demo account: <span className="font-semibold text-gray-600">hilalhussain1049@gmail.com</span> / <span className="font-semibold text-gray-600">Hilal@123</span>
             </p>
           )}
 
           {/* Legal / Policy Links */}
-          <div className="pt-8 text-center text-xs text-gray-600 flex flex-wrap items-center justify-center gap-2.5">
+          <div className="pt-8 text-center text-xs text-gray-600 flex flex-wrap items-center justify-center gap-3">
             <a href="#" className="hover:text-gray-950 underline underline-offset-2 flex items-center gap-0.5">
               Terms of Service <ArrowUpRight className="w-3 h-3" />
             </a>
-            <span className="text-gray-400">·</span>
+            <span className="text-gray-300">·</span>
             <a href="#" className="hover:text-gray-950 underline underline-offset-2 flex items-center gap-0.5">
               Privacy Policy <ArrowUpRight className="w-3 h-3" />
             </a>
-            <span className="text-gray-400">·</span>
+            <span className="text-gray-300">·</span>
             <a href="#" className="hover:text-gray-950 underline underline-offset-2 flex items-center gap-0.5">
               Security <ArrowUpRight className="w-3 h-3" />
             </a>
@@ -260,10 +259,10 @@ export function LoginPage({ initialMode = 'register', onLoginSuccess, onGoToLand
         {/* RIGHT COLUMN: "INTRODUCING INSIGHTS" REFERENCE MOCKUP */}
         {/* ========================================================= */}
         <div className="w-full lg:max-w-[700px] xl:max-w-[760px] flex-1">
-          <div className="bg-[#f3efe6] border border-[#e8e2d4] rounded-[28px] sm:rounded-[34px] p-6 sm:p-9 pb-0 overflow-hidden shadow-sm">
+          <div className="bg-[#eeeae1] border border-[#e4dfd4] rounded-[28px] sm:rounded-[34px] p-6 sm:p-9 pb-0 overflow-hidden shadow-sm">
             
             {/* Top Badge: NEW */}
-            <div className="inline-block bg-[#284931] text-white text-[11px] font-extrabold px-2.5 py-0.5 rounded-md uppercase tracking-wider mb-3">
+            <div className="inline-block bg-[#1a3822] text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-md uppercase tracking-wider mb-3">
               NEW
             </div>
 
@@ -277,21 +276,17 @@ export function LoginPage({ initialMode = 'register', onLoginSuccess, onGoToLand
               Analytics that show you your next move
             </p>
 
-            {/* Buffer Insights UI Mockup Screen (Replicating Reference Image) */}
+            {/* Insights UI Mockup Screen (Replicating Reference Image) */}
             <div className="bg-white rounded-t-2xl border-t border-l border-r border-gray-200 shadow-xl overflow-hidden flex flex-row">
               
               {/* Mini Left Sidebar */}
               <div className="w-11 bg-white border-r border-gray-100 py-3 flex flex-col items-center justify-between shrink-0 select-none">
                 <div className="space-y-3.5 flex flex-col items-center">
-                  {/* Mini Buffer logo */}
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-gray-800">
-                    <path d="M1.5 5.5L12 11.25L22.5 5.5L12 0L1.5 5.5Z" />
-                    <path d="M1.5 12L12 17.75L22.5 12L19.5 10.35L12 14.5L4.5 10.35L1.5 12Z" />
-                    <path d="M1.5 18.5L12 24.25L22.5 18.5L19.5 16.85L12 21L4.5 16.85L1.5 18.5Z" />
-                  </svg>
+                  {/* Mini SocialHub logo */}
+                  <img src={logo} alt="SocialHub AI" className="w-4 h-4 object-contain" />
                   
                   {/* Green + button */}
-                  <div className="w-6 h-6 rounded-md bg-[#a6e59a] flex items-center justify-center text-gray-900 font-bold text-xs">
+                  <div className="w-6 h-6 rounded-md bg-[#a6f087] flex items-center justify-center text-gray-900 font-bold text-xs">
                     +
                   </div>
 
@@ -350,10 +345,10 @@ export function LoginPage({ initialMode = 'register', onLoginSuccess, onGoToLand
                           <span className="truncate">Publish Your Overdue Draft</span>
                         </div>
                         <p className="text-[10px] text-gray-500 leading-snug line-clamp-2">
-                          You have two drafts waiting, one overdue. Share your thoughts on Buffer's open API to engage your audience.
+                          You have two drafts waiting, one overdue. Share your thoughts on SocialHub AI to engage your audience.
                         </p>
                       </div>
-                      <button type="button" className="mt-2.5 w-fit px-2 py-0.5 border border-gray-200 rounded text-[10px] font-semibold text-gray-700 bg-white hover:bg-gray-50">
+                      <button type="button" className="mt-2.5 w-fit px-2 py-0.5 border border-gray-200 rounded text-[10px] font-semibold text-gray-700 bg-white hover:bg-gray-50 cursor-pointer">
                         Explore Templates
                       </button>
                     </div>
@@ -369,7 +364,7 @@ export function LoginPage({ initialMode = 'register', onLoginSuccess, onGoToLand
                           Repost your engaging post about your ambitious project. It resonated well, with a reach of 1781.
                         </p>
                       </div>
-                      <button type="button" className="mt-2.5 w-fit px-2 py-0.5 border border-gray-200 rounded text-[10px] font-semibold text-gray-700 bg-white hover:bg-gray-50">
+                      <button type="button" className="mt-2.5 w-fit px-2 py-0.5 border border-gray-200 rounded text-[10px] font-semibold text-gray-700 bg-white hover:bg-gray-50 cursor-pointer">
                         Create Post
                       </button>
                     </div>
@@ -385,7 +380,7 @@ export function LoginPage({ initialMode = 'register', onLoginSuccess, onGoToLand
                           Your posting goal: you've only sent 2 more posts to maintain community momentum this week.
                         </p>
                       </div>
-                      <button type="button" className="mt-2.5 w-fit px-2 py-0.5 border border-gray-200 rounded text-[10px] font-semibold text-gray-700 bg-white hover:bg-gray-50">
+                      <button type="button" className="mt-2.5 w-fit px-2 py-0.5 border border-gray-200 rounded text-[10px] font-semibold text-gray-700 bg-white hover:bg-gray-50 cursor-pointer">
                         Create Post
                       </button>
                     </div>
